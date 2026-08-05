@@ -142,28 +142,33 @@ function computeRadar(text) {
 // ==================== 工具函数 ====================
 const clampCount = (len, cap = 12) => Math.max(1, Math.min(cap, Math.ceil(len / 400)))
 
-// 在原文段落中定位引文：先精确/宽松匹配，再退化为最长公共子串（≥8 字）锚定
-function findQuoteStart(flat, quote) {
-  const q = String(quote).replace(/\s+/g, '')
-  let idx = flat.indexOf(q)
-  if (idx !== -1) return { start: idx, len: q.length }
-
-  const stripped = q.replace(/^[，。！？；、：""''（）…\s]+|[，。！？；、：""''（）…\s]+$/g, '')
-  if (stripped && stripped !== q) {
-    idx = flat.indexOf(stripped)
-    if (idx !== -1) return { start: idx, len: stripped.length }
-  }
-
-  // 最长公共子串锚定：容忍模型对引文的改写，至少 8 字
-  const maxWin = Math.min(q.length, 24)
-  for (let win = maxWin; win >= 8; win--) {
-    for (let s = 0; s + win <= q.length; s++) {
-      const sub = q.substr(s, win)
-      idx = flat.indexOf(sub)
-      if (idx !== -1) return { start: idx, len: win }
+// 从正文抽取"完整的句子"（含句末标点），按出现顺序返回；末尾无句末标点的残句不计入
+function extractSentences(content) {
+  const out = []
+  for (const p of String(content || '').split(/\n+/)) {
+    const t = p.replace(/\s+/g, '')
+    if (!t) continue
+    let buf = ''
+    for (const ch of t) {
+      buf += ch
+      if (/[。！？…]/.test(ch)) {
+        out.push(buf)
+        buf = ''
+      }
     }
   }
-  return null
+  return out
+}
+
+// 近似"最长公共子串"长度，判断模型引文与真实句子的契合度
+function overlapScore(a, b) {
+  const maxWin = Math.min(a.length, 60)
+  for (let win = maxWin; win >= 4; win--) {
+    for (let s = 0; s + win <= a.length; s++) {
+      if (b.indexOf(a.substr(s, win)) !== -1) return win
+    }
+  }
+  return 0
 }
 
 export function buildPrompt({ content, title, author, annoCount = 5 }) {
@@ -178,28 +183,35 @@ ${content}
 ${WRITER_LINE}
 
 评审总原则（务必遵守）：
+- 你的身份是一位严厉而内行的资深文学编辑：客观、锐利、具体，不敷衍、不吹捧、不空泛；好就具体说好在哪，坏就直说坏在哪，给出作者能直接拿去修改、真正有价值的话
 - 优先维护作品的文学性，而不是可读性
 - 不要为了顺畅而消除作者刻意制造的晦涩、断裂、意识跳跃；不要把奇异的意象改写得通俗好懂
 - 只修正真正的硬伤：错别字、的/得/地误用、语法崩坏、逻辑彻底断裂
 - 叙事层面刻意的断裂、歧义、含混属于作者的写作选择，不视作错误，也绝不要求改顺
 
+评分标准（务必遵守）：
+- 60 分 = 省市级文学刊物可发表的水平；70 分 = 国内重要文学期刊水平；80 分 = 顶尖（《收获》《人民文学》级别）；90 分以上 = 一流作家的名篇；100 分 = 诺贝尔文学奖级别
+- 绝大多数投稿在 55-75 之间；只有真正出色、让人眼前一亮的文本才给 80 以上，切勿虚高
+- 五个分项（语言/结构/意象/情感/创新）与总分都要基于你对文本的真实判断，且必须与评语口径一致：评语里批评得越重，分数就越低
+
 请严格按以下 JSON 结构返回（只返回合法 JSON，不要 markdown 代码块，不要任何其他文字）：
 {
-  "textOverview": "①文本概览：这段写什么；叙事视角；在长篇里承担什么功能；整体气质。直接写内容，约80字",
-  "hardIssues": "②硬伤核查：只列出客观错误（错别字、的得地、语法崩坏、逻辑彻底断裂），没有就写【无硬伤】。绝不把审美偏好放这里，约60字",
-  "literaryAnalysis": "③文学评析：先讲优点（结合上面参考作家的特质来讲）；再讲问题点，明确区分【缺陷】和【作者主动的写作选择】；指出哪些段落冗余可以删、哪些地方存在表意缺口需要补足。约200-300字",
-  "conclusion": "④结论：一句话判定本段是否可用，并附带需要处理的工作，约50字",
+  "textOverview": "①文本概览：这段写什么；叙事视角（必须准确判断人称，正文若用'他/她'即第三人称，用'我'即第一人称，别弄错）；在长篇里承担什么功能；整体气质。直接写内容，约60字",
+  "hardIssues": "②硬伤核查：只列出客观错误（错别字、的得地、语法崩坏、逻辑彻底断裂），没有就写【无硬伤】。绝不把审美偏好放这里，约40字",
+  "literaryAnalysis": "③文学评析：像资深编辑那样锐利地讲：哪些地方真正立起来了、好在哪；哪些是硬伤、哪些是作者主动的写作选择；哪里冗赘可删、哪里存在表意缺口。约150字以内，务必精炼、言之有物",
+  "conclusion": "④结论：一句话判定本段是否可用，并附带需要处理的工作，约40字",
   "styleColor": "代表本段文字风格的专属颜色，必须是合法的六位十六进制色号（如 #B8A9C9）。要求柔和、低饱和、偏淡雅的文学性色调（类似宣纸、暮色、雾霭），不要刺眼的高饱和色",
   "continuation": "约80字的续写，风格与原文一致",
-  "emotionalClosing": "一句温暖的鼓励性结语",
+  "emotionalClosing": "一句克制的、有文学余味的祝福或升华语（20-40字），避免鸡汤与空泛，最好用意象或隐喻收束，能提升整篇格调",
   "tone": "melancholy|passionate|serene|mysterious|humorous 之一，按文本整体情感基调判断",
+  "scores": { "language": 0-100整数, "structure": 0-100整数, "imagery": 0-100整数, "emotion": 0-100整数, "innovation": 0-100整数, "total": 0-100整数 },
   "authors": [
-    { "name": "从上述清单挑选的第1位风格最相似的作家名", "work": "该作家的代表作" },
-    { "name": "第2位风格最相似的作家名", "work": "该作家的代表作" },
-    { "name": "第3位风格最相似的作家名", "work": "该作家的代表作" }
+    { "name": "从上述清单挑选的第1位风格最相似的作家名", "work": "该作家的代表作", "reason": "一句简短的话说明该作家与本文风格相似的原因，约20-40字", "similarity": 0-100整数（风格相似度百分比） },
+    { "name": "第2位风格最相似的作家名", "work": "该作家的代表作", "reason": "一句简短的话说明该作家与本文风格相似的原因，约20-40字", "similarity": 0-100整数（风格相似度百分比） },
+    { "name": "第3位风格最相似的作家名", "work": "该作家的代表作", "reason": "一句简短的话说明该作家与本文风格相似的原因，约20-40字", "similarity": 0-100整数（风格相似度百分比） }
   ],
   "annotations": [
-    { "quote": "原文中真实存在的高光句子，必须逐字摘自原文", "comment": "50-70字批注，遵循上述文学性原则，只谈修辞、意象、节奏的得失" }
+    { "quote": "原文中真实存在的一个完整句子的高光句，从句子第一个字到句末标点完整摘录", "comment": "50-70字批注，锐利、具体地谈这一句的修辞、意象、节奏得失，不要空泛的褒贬" }
   ]
 }
 
@@ -207,10 +219,11 @@ ${WRITER_LINE}
 1. textOverview / hardIssues / literaryAnalysis / conclusion 四段缺一不可，直接给正文内容，不要额外加①②③④之外的标题
 2. styleColor 必须是合法的六位十六进制色号
 3. annotations 数组必须【正好 ${annoCount} 项】，绝对不能多——每项对应原文中约一个 400 字片段里最高光的那一句，每项约 50-70 字，多写会挤占输出预算导致前面字段截断，输出预算有限，请务必只写 ${annoCount} 项
-4. 每条 annotations 的 quote 必须从正文中【逐字完整摘录】（含原文标点），绝不能改写、删减、拼接或凭空编造；若原文里实在找不到完整的第 ${annoCount} 句，就挑一句真正存在的最短的句子，宁可句子短，不可编造
-5. authors 数组必须【正好 3 项】，且每位都严格出自上面的作家清单，work 必须是该作家真实存在的代表作
+4. 每条 annotations 的 quote 必须从正文中【逐字完整摘录】一个【完整的句子】：从句子第一个字开始，到句号/问号/感叹号/省略号等句末标点为止（含句末标点）。绝不能改写、删减、截取半句、拼接或凭空编造；若原文里实在找不到完整的第 ${annoCount} 句，就挑一句真正存在的最短的完整句子，宁可句子短，不可编造
+5. authors 数组必须【正好 3 项】，且每位都严格出自上面的作家清单，work 必须是该作家真实存在的代表作；reason 必须是一句具体的、结合本文特点的相似理由（说明风格/笔法/题材上哪里像），禁止空话套话，禁止从清单外编造；similarity 必须是 0-100 之间的整数，表示该作家风格与本文的相似度百分比，按你的真实判断给出（通常 55-90，第一位应是最高的）
 6. tone 只能是 melancholy(清冷忧郁)、passionate(热烈激情)、serene(宁静平和)、mysterious(神秘幽微)、humorous(幽默诙谐) 之一
-7. 只输出这一个 JSON 对象，禁止复述作家清单，禁止任何清单之外的解释文字`
+7. scores 的五个分项与 total 都必须是 0-100 之间的整数，且必须严格对照评分标准与你的评语来给，禁止一律给高分
+8. 只输出这一个 JSON 对象，禁止复述作家清单，禁止任何清单之外的解释文字`
 }
 
 export function extractJson(text) {
@@ -318,6 +331,25 @@ function pickRandomWriter(exclude = new Set()) {
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
+const FALLBACK_REASONS = [
+  '叙事节奏与句法气质相近，读感有共通之处。',
+  '同样擅长以意象营造氛围，笔触细腻绵长。',
+  '行文克制中见深情，风格气质相仿。',
+]
+
+const cleanReason = (r) => {
+  const s = String(r || '').trim().replace(/\s+/g, '')
+  if (!s) return ''
+  return s.length > 60 ? s.slice(0, 60) + '…' : s
+}
+
+// 把 AI 给的相似度转为 0-100 的整数，非法则给一个合理默认值
+const toSimilarity = (v, fallback) => {
+  const n = Number(v)
+  if (Number.isFinite(n) && n >= 0 && n <= 100) return Math.round(n)
+  return fallback
+}
+
 function normalizeAuthors(parsed) {
   const candidates = Array.isArray(parsed?.authors) ? parsed.authors : []
   const result = []
@@ -330,49 +362,121 @@ function normalizeAuthors(parsed) {
     let writer = WRITERS.find((w) => w.name === name)
     if (writer && !used.has(name)) {
       used.add(name)
-      result.push({ name: writer.name, work: writer.work, work2: writer.work2 })
+      result.push({
+        name: writer.name,
+        work: writer.work,
+        work2: writer.work2,
+        reason: cleanReason(c.reason) || FALLBACK_REASONS[result.length % FALLBACK_REASONS.length],
+        similarity: toSimilarity(c.similarity, 90 - result.length * 8),
+      })
     }
   }
 
   while (result.length < 3) {
     const w = pickRandomWriter(used)
     used.add(w.name)
-    result.push({ name: w.name, work: w.work })
+    result.push({
+      name: w.name,
+      work: w.work,
+      work2: w.work2,
+      reason: FALLBACK_REASONS[result.length % FALLBACK_REASONS.length],
+      similarity: 55 + Math.floor(Math.random() * 25),
+    })
   }
 
-  return result
+  // 按相似度从高到低排序，第一位即最相似
+  return result.sort((a, b) => b.similarity - a.similarity)
 }
 
 export function normalizeReview(parsed, content) {
-  // 按段落分别扁平化，保证批注引文能锚定到单个段落
-  const parasFlat = (content || '').split(/\n+/).map((p) => p.replace(/\s+/g, ''))
   const annoCap = clampCount(content.trim().length)
-  const annotations = (Array.isArray(parsed.annotations) ? parsed.annotations : [])
-    .filter((a) => a && a.quote && a.comment)
-    .map((a, i) => {
-      const quote = String(a.quote).trim()
-      let match = null
-      let actual = quote
-      for (const pf of parasFlat) {
-        const m = findQuoteStart(pf, quote)
-        if (m) {
-          match = m
-          actual = pf.substr(m.start, m.len)
-          break
-        }
-      }
-      return {
-        id: `anno_${Date.now()}_${i}`,
-        quote: actual,
-        comment: String(a.comment).trim(),
-        startIndex: match ? match.start : -1,
-      }
-    })
-    .filter((a) => a.startIndex !== -1)
+
+  // 批注：quote 必须是原文中真实存在的完整句子。模型可能改写/编造引文，
+  // 因此用"最长公共子串"把每条批注匹配到最近的真实句子；匹配不上就按文本顺序就近分配。
+  const sentences = extractSentences(content)
+  const rawAnno = (Array.isArray(parsed.annotations) ? parsed.annotations : [])
+    .filter((a) => a && String(a.comment || '').trim())
     .slice(0, annoCap)
+
+  const usedIdx = new Set()
+  const pickByTextOrder = (preferPos) => {
+    const avail = []
+    sentences.forEach((s, j) => { if (!usedIdx.has(j)) avail.push(j) })
+    if (!avail.length) return -1
+    let best = avail[0]
+    let bestDist = Infinity
+    for (const j of avail) {
+      const pos = sentences.length > 1 ? j / (sentences.length - 1) : 0.5
+      const dist = Math.abs(pos - preferPos)
+      if (dist < bestDist) { bestDist = dist; best = j }
+    }
+    return best
+  }
+
+  const annotations = rawAnno.map((a, i) => {
+    const quote = String(a.quote || '').trim().replace(/\s+/g, '')
+    const stripped = quote.replace(/[，。！？；：""''（）…、—\-\s]/g, '')
+    let si = -1
+    let bestScore = 0
+    sentences.forEach((s, j) => {
+      if (usedIdx.has(j)) return
+      let sc = stripped ? overlapScore(stripped, s) : 0
+      if (s.length > 60) sc -= (s.length - 60) * 0.4
+      if (sc > bestScore) { bestScore = sc; si = j }
+    })
+    // 契合度太低（模型可能编造了引文）→ 按文本顺序就近分配一个真实句子
+    if (si === -1 || bestScore < 6) {
+      const preferPos = rawAnno.length > 1 ? i / (rawAnno.length - 1) : 0.5
+      si = pickByTextOrder(preferPos)
+    }
+    if (si === -1) return null
+    usedIdx.add(si)
+    return {
+      id: `anno_${Date.now()}_${i}`,
+      quote: sentences[si],
+      comment: String(a.comment).trim(),
+      startIndex: si,
+    }
+  }).filter(Boolean)
 
   const authors = normalizeAuthors(parsed)
   const computed = computeRadar(content)
+
+  // 评分：优先采纳 AI 编辑给出的分数（按 60/80/100 校准），缺失或非法则退回启发式计算
+  const toNum = (v) => {
+    const n = Number(v)
+    if (!Number.isFinite(n)) return null
+    return Math.max(0, Math.min(100, Math.round(n)))
+  }
+  const s = parsed?.scores && typeof parsed.scores === 'object' ? parsed.scores : {}
+  const rNum = {
+    language: toNum(s.language),
+    structure: toNum(s.structure),
+    imagery: toNum(s.imagery),
+    emotion: toNum(s.emotion),
+    innovation: toNum(s.innovation),
+    total: toNum(s.total),
+  }
+  const hasAny = Object.values(rNum).some((v) => v !== null)
+  let radar, score
+  if (hasAny) {
+    const five = [rNum.language, rNum.structure, rNum.imagery, rNum.emotion, rNum.innovation]
+    radar = {
+      language: rNum.language ?? computed.radar.language,
+      structure: rNum.structure ?? computed.radar.structure,
+      imagery: rNum.imagery ?? computed.radar.imagery,
+      emotion: rNum.emotion ?? computed.radar.emotion,
+      innovation: rNum.innovation ?? computed.radar.innovation,
+    }
+    const fiveVals = five.filter((v) => v !== null)
+    const avg = Math.round(fiveVals.reduce((a, b) => a + b, 0) / Math.max(1, fiveVals.length))
+    // 总分与分项均分保持口径一致（允许 ±10 的编辑浮动），避免分项低而总分虚高
+    const base = rNum.total !== null ? rNum.total : avg
+    score = Math.max(avg - 10, Math.min(avg + 10, base))
+  } else {
+    radar = computed.radar
+    score = computed.score
+  }
 
   const styleColor = typeof parsed?.styleColor === 'string'
     && /^#[0-9a-fA-F]{6}$/.test(parsed.styleColor)
@@ -391,8 +495,8 @@ export function normalizeReview(parsed, content) {
     emotionalClosing: parsed?.emotionalClosing || '',
     tone: TONES.includes(parsed?.tone) ? parsed.tone : 'melancholy',
     styleColor,
-    score: computed.score,
-    radar: computed.radar,
+    score,
+    radar,
   }
 }
 
@@ -407,7 +511,7 @@ async function callXfyun(prompt, temperature) {
       model: XFYUN_MODEL,
       messages: [{ role: 'user', content: prompt }],
       temperature,
-      max_tokens: 5000,
+      max_tokens: 8192,
     }),
   })
 

@@ -1,11 +1,18 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useWriterStore } from '../store/useWriterStore'
 import { Feather, Loader2, Check, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 export default function FloatingActionBall() {
-  const { isReviewing, isThinking, triggerReview, requestPanelClose } = useWriterStore()
+  const { isReviewing, isThinking, triggerReview, requestPanelClose, showBottomBar } = useWriterStore()
   const [isHovered, setIsHovered] = useState(false)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   const isDone = isReviewing && !isThinking
 
@@ -26,12 +33,15 @@ export default function FloatingActionBall() {
 
   const tooltipText = isDone ? '返回编辑' : 'AI 锐评'
 
+  // 下边栏升起时，把悬浮球抬到其上方，避免遮挡总评；移动端抽屉自带关闭按钮，直接隐藏
+  if (showBottomBar && isMobile) return null
+
   return (
     <motion.button
-      className="fixed z-50 w-16 h-16 rounded-full bg-editor-accent text-white 
+      className={`fixed z-50 w-16 h-16 rounded-full bg-editor-accent text-white 
                  flex items-center justify-center shadow-lg cursor-pointer
-                 disabled:opacity-60 disabled:cursor-not-allowed"
-      style={{ right: 32, bottom: 32 }}
+                 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-500`}
+      style={{ right: 32, bottom: showBottomBar ? 'calc(50vh + 28px)' : 32 }}
       whileHover={{ scale: 1.1 }}
       whileTap={{ scale: 0.95 }}
       onHoverStart={() => setIsHovered(true)}

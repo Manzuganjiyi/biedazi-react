@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useWriterStore } from '../store/useWriterStore'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Download, Check, AlertCircle, X, Scan, BookOpen, Users, MessageSquare, PenLine, Sparkles, ChevronDown } from 'lucide-react'
+import { ArrowLeft, Download, Check, AlertCircle, X, Scan, BookOpen, Users, MessageSquare, PenLine, Sparkles } from 'lucide-react'
 import { analyzeTextAPI, TONE_COLORS } from '../data/mockReviews'
 
 const hexToRgba = (hex, alpha = 0.55) => {
@@ -34,7 +34,7 @@ const splitComment = (text, maxSeg = 3) => {
 }
 
 // 将总评长文按句分段（每段约 target 字，最多 maxSeg 段）
-const splitText = (text, target = 40, maxSeg = 4) => {
+const splitText = (text, target = 40, maxSeg = 12) => {
   const raw = String(text || '').trim()
   if (!raw) return []
   const segments = []
@@ -135,7 +135,6 @@ function ScoreCard({ score, radar, fill }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <div className="text-xs font-medium text-editor-secondary mb-2.5">写作水平评估</div>
       <div className={`flex items-center gap-4 ${fill ? 'flex-1 justify-center' : ''}`}>
         <div className="text-center">
           <div className="text-3xl font-bold text-editor-text">{score}</div>
@@ -247,22 +246,20 @@ function AuthorsCard({ authors, fill }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <div className="text-xs font-medium text-editor-secondary mb-2.5">
-        相似作家 · 共 {list.length} 位
-      </div>
       {list.map((author, i) => (
         <div 
           key={i}
           className={`flex items-center gap-2.5 ${fill ? 'flex-1 items-center' : ''} ${i < list.length - 1 ? 'border-b border-black/5' : ''}`}
         >
-          <div className="w-5 h-5 rounded-full bg-editor-accent/10 text-editor-accent flex items-center justify-center text-[10px] font-semibold flex-shrink-0">
-            {i + 1}
+          <div className="w-9 flex-shrink-0 text-[11px] font-semibold text-editor-accent text-center">
+            {author.similarity}%
           </div>
           <div className="min-w-0">
-            <div className="text-[13px] font-medium text-editor-text leading-tight">{author.name}</div>
-            <div className="text-[11px] text-editor-secondary mt-0.5 leading-snug">
-              {author.work} · {author.work2}
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-[13px] font-medium text-editor-text leading-tight">{author.name}</span>
+              <span className="text-[11px] text-editor-secondary truncate">{author.work}</span>
             </div>
+            <div className="text-[11px] text-editor-secondary/70 mt-0.5 leading-snug">{author.reason}</div>
           </div>
         </div>
       ))}
@@ -333,6 +330,41 @@ function ReviewSection({ title, children }) {
 
 function SummaryCard({ review, fill }) {
   const hasStructured = review?.textOverview || review?.hardIssues || review?.literaryAnalysis || review?.conclusion
+  const [revealClosing, setRevealClosing] = useState(false)
+  const contentRef = useRef(null)
+
+  // 感悟句在滚动完总评后滑出：内容不足一屏时直接显示，否则滚动到底才显示
+  useEffect(() => {
+    if (!fill) {
+      setRevealClosing(true)
+      return
+    }
+    const el = contentRef.current
+    if (el && el.scrollHeight <= el.clientHeight + 4) setRevealClosing(true)
+  }, [fill])
+
+  const handleScroll = () => {
+    const el = contentRef.current
+    if (!el) return
+    if (el.scrollHeight - el.scrollTop - el.clientHeight < 60) setRevealClosing(true)
+  }
+
+  // 升华句滑入时总评同步向上滚动到底，让升华句始终露在视野里
+  useEffect(() => {
+    if (!fill || !revealClosing) return
+    const el = contentRef.current
+    if (!el) return
+    const start = performance.now()
+    const dur = 600
+    let raf
+    const tick = (t) => {
+      el.scrollTop = el.scrollHeight
+      if (t - start < dur) raf = requestAnimationFrame(tick)
+    }
+    raf = requestAnimationFrame(tick)
+    return () => cancelAnimationFrame(raf)
+  }, [revealClosing, fill])
+
   return (
     <motion.div 
       className={`glass-card p-4 flex flex-col ${fill ? 'h-full' : 'mb-3'}`}
@@ -341,7 +373,7 @@ function SummaryCard({ review, fill }) {
       transition={{ duration: 0.4, delay: 0.3 }}
     >
       {hasStructured ? (
-        <div className={fill ? 'flex-1 overflow-y-auto' : ''}>
+        <div ref={contentRef} onScroll={handleScroll} className={fill ? 'flex-1 overflow-y-auto' : ''}>
           <ReviewSection title="① 文本概览">{review.textOverview}</ReviewSection>
           <ReviewSection title="② 硬伤核查">{review.hardIssues}</ReviewSection>
           <ReviewSection title="③ 文学评析">{review.literaryAnalysis}</ReviewSection>
@@ -351,9 +383,19 @@ function SummaryCard({ review, fill }) {
         <div className="text-sm text-editor-text leading-relaxed whitespace-pre-line">{review?.summary}</div>
       )}
       {review?.emotionalClosing && (
-        <div className={`pt-3 border-t border-black/5 text-base italic leading-relaxed ${fill ? 'flex-shrink-0' : 'mt-4'}`} style={{ color: '#8B7355' }}>
-          "{review.emotionalClosing}"
-        </div>
+        <motion.div
+          initial={false}
+          animate={{ gridTemplateRows: revealClosing ? '1fr' : '0fr', opacity: revealClosing ? 1 : 0 }}
+          transition={{ duration: 0.5, ease: 'easeInOut', delay: revealClosing ? 0.1 : 0 }}
+          className="flex-shrink-0"
+          style={{ display: 'grid' }}
+        >
+          <div className="overflow-hidden min-h-0">
+            <div className="pt-3 border-t border-black/5 text-base italic leading-relaxed" style={{ color: '#8B7355' }}>
+              "{review.emotionalClosing}"
+            </div>
+          </div>
+        </motion.div>
       )}
     </motion.div>
   )
@@ -391,7 +433,7 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
         ref={ref}
         style={{
           width: 450,
-          height: 800,
+          minHeight: 800,
           boxSizing: 'border-box',
           padding: '34px 36px 26px',
           display: 'flex',
@@ -428,14 +470,16 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
               key={i}
               style={{ flex: 1, background: 'rgba(255,255,255,0.7)', borderRadius: 8, padding: '8px 10px', textAlign: 'center' }}
             >
-              <div style={{ fontSize: 13, color: ink, fontWeight: 600 }}>{a.name}</div>
-              <div style={{ fontSize: 10, color: sub, marginTop: 3, lineHeight: 1.5 }}>{a.work}<br />{a.work2}</div>
+              <div style={{ fontSize: 13, color: ink, fontWeight: 600 }}>
+                {a.name} <span style={{ fontSize: 10, color: sub, fontWeight: 400 }}>{a.work}</span>
+              </div>
+              <div style={{ fontSize: 10, color: sub, marginTop: 3, lineHeight: 1.5 }}>{a.reason}</div>
             </div>
           ))}
         </div>
 
         {/* 四段审稿意见 */}
-        <div style={{ flex: 1, overflow: 'hidden' }}>
+        <div style={{ flex: '1 0 auto' }}>
           {sections.map((s) => (
             <div key={s.label} style={{ marginBottom: 10 }}>
               <div style={{ fontSize: 11, fontWeight: 600, color: accent, marginBottom: 3 }}>{s.label}</div>
@@ -460,7 +504,8 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
 export default function ReviewPanel() {
   const { 
     isReviewing, isThinking, thinkingSteps, activeArticleId, articles,
-    toneColor, closeReview, setGhostText, saveReview, setStyleColor, setThinking
+    toneColor, closeReview, setGhostText, saveReview, setStyleColor, setThinking,
+    showBottomBar, setShowBottomBar, setResultsVisible, closeRequestId
   } = useWriterStore()
 
   const [activeStep, setActiveStep] = useState(0)
@@ -472,10 +517,8 @@ export default function ReviewPanel() {
   const [isMobile, setIsMobile] = useState(false)
   const [showShare, setShowShare] = useState(false)
   const [shareImage, setShareImage] = useState(null)
-  const [showBottomBar, setShowBottomBar] = useState(false)
   const shareCardRef = useRef(null)
   const sideScrollRef = useRef(null)
-  const { setResultsVisible, closeRequestId } = useWriterStore()
 
   const activeArticle = articles.find(a => a.id === activeArticleId)
 
@@ -844,7 +887,7 @@ export default function ReviewPanel() {
     <>
       {/* 右侧批注栏（未读完时占满全高，下边栏升起时上移） */}
       <div className={`fixed right-0 top-0 w-[35%] z-40 flex transition-all duration-500
-        ${showResults && showBottomBar ? 'bottom-[40vh]' : 'bottom-0'}
+        ${showResults && showBottomBar ? 'bottom-[50vh]' : 'bottom-0'}
         ${isReviewing && !isClosing ? 'translate-x-0' : 'translate-x-full'}
       `}>
         {/* 粉刷动画层 - 仅在分析完成、呈现结果时从原色涂刷至代表风格的颜色 */}
@@ -965,30 +1008,15 @@ export default function ReviewPanel() {
         </div>
       </div>
 
-      {/* 下边栏：写作水平评估 + 相似作家 + 审稿意见（读完批注后从下方滑入） */}
+      {/* 下边栏：直接呈现有效信息（分数 / 相似作家 / 审稿意见），无标题栏 */}
       {showResults && !error && reviewData && showBottomBar && (
         <motion.div
-          className="fixed bottom-0 left-0 right-0 z-30 h-[40vh] flex flex-col border-t border-black/10 shadow-[0_-6px_24px_rgba(0,0,0,0.1)]"
+          className="fixed bottom-0 left-0 right-0 z-30 h-[50vh] flex flex-col border-t border-black/10 shadow-[0_-6px_24px_rgba(0,0,0,0.1)]"
           style={{ background: `linear-gradient(0deg, ${hexToRgba(toneColor, 0.28)}, rgba(250,249,246,0.98) 55%)` }}
           initial={{ opacity: 0, y: 64 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
-          {/* 顶栏 */}
-          <div className="flex items-center justify-between px-5 py-2 border-b border-black/5 flex-shrink-0">
-            <div className="flex items-center gap-2 text-xs font-medium text-editor-secondary">
-              <span className="w-2 h-2 rounded-full" style={{ background: toneColor }} />
-              审稿结果
-              {activeArticle?.title && <span className="text-editor-secondary/60">· {activeArticle.title}</span>}
-            </div>
-            <button
-              className="flex items-center gap-1 text-xs text-editor-secondary hover:text-editor-text transition-colors px-2 py-1 rounded-md hover:bg-black/5"
-              onClick={() => setShowBottomBar(false)}
-            >
-              收起评估 <ChevronDown size={13} />
-            </button>
-          </div>
-
           {/* 内容三栏：等高分栏，视觉整齐 */}
           <div className="flex flex-1 min-h-0">
             <div className="w-[240px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto">
