@@ -551,9 +551,9 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
 export default function ReviewPanel() {
   const { 
     isReviewing, isThinking, thinkingSteps, activeArticleId, articles,
-    toneColor, closeReview, setGhostText, saveReview, setStyleColor, setThinking,
+    toneColor, closeReview, saveReview, setStyleColor, setThinking,
     showBottomBar, setShowBottomBar, setResultsVisible, closeRequestId,
-    bottomBarH, setBottomBarH,
+    bottomBarH, setBottomBarH, showContinuation, setShowContinuation,
   } = useWriterStore()
 
   const [activeStep, setActiveStep] = useState(0)
@@ -588,6 +588,7 @@ export default function ReviewPanel() {
     setError(null)
     setResultsVisible(false)
     setShowBottomBar(false)
+    setShowContinuation(false)
     setBottomBarH(isMobile ? 62 : 50)
 
     // 视觉推进与真实 API 调用并行：按 20s 名义时长均衡分配 5 个阶段
@@ -610,7 +611,6 @@ export default function ReviewPanel() {
         setStyleColor(result.styleColor || TONE_COLORS[result.tone])
         setReviewData(result)
         saveReview(result)
-        setGhostText(result.continuation)
         setShowResults(true)
         setResultsVisible(true)
       })
@@ -851,7 +851,7 @@ export default function ReviewPanel() {
           className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl shadow-[0_-6px_24px_rgba(0,0,0,0.12)] flex flex-col"
           style={{ height: `${bottomBarH}vh`, background: `linear-gradient(0deg, ${hexToRgba(toneColor, 0.38)}, #FAF9F6 60%)`, borderTop: `1px solid ${hexToRgba(toneColor, 0.5)}` }}
           initial={{ y: '100%' }}
-          animate={{ y: 0 }}
+          animate={{ y: showContinuation ? '100%' : 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 26, stiffness: 210 }}
         >
@@ -969,10 +969,10 @@ export default function ReviewPanel() {
   // 桌面端：右侧批注栏（浮动卡片）+ 可拖动的下边栏
   return (
     <>
-      {/* 右侧批注栏：浮动玻璃卡片。未升起下边栏时占满右列高度，不遮住编辑器全文；下边栏升起时上移腾位，编辑器同时向左上压缩 */}
+      {/* 右侧批注栏：浮动玻璃卡片。未升起下边栏时占满右列高度，不遮住编辑器全文；下边栏升起时上移腾位，编辑器同时向左上压缩；切到续写模式后滑出 */}
       <div
         className={`fixed right-4 z-40 flex flex-col rounded-2xl overflow-hidden transition-all duration-500
-          ${isReviewing && !isClosing ? 'translate-x-0' : 'translate-x-full'}
+          ${isReviewing && !isClosing && !showContinuation ? 'translate-x-0' : 'translate-x-full'}
         `}
         style={{
           top: 16,
@@ -1105,19 +1105,21 @@ export default function ReviewPanel() {
       </div>
 
       {/* 下边栏：直接呈现有效信息（评级 / 相似作家 / 文本解读），无标题栏；高度可按住顶部抓手上下拖动；色调与文风呼应 */}
-      {showResults && !error && reviewData && showBottomBar && (
-        <motion.div
-          className="fixed bottom-0 left-0 right-0 z-30 flex flex-col shadow-[0_-6px_24px_rgba(0,0,0,0.1)]"
-          style={{
-            height: `${bottomBarH}vh`,
-            background: `linear-gradient(0deg, ${hexToRgba(toneColor, 0.42)}, rgba(250,249,246,0.98) 62%)`,
-            borderTop: `1px solid ${hexToRgba(toneColor, 0.55)}`,
-            overflow: 'hidden',
-          }}
-          initial={{ opacity: 0, y: 64 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-        >
+      <AnimatePresence>
+        {showResults && !error && reviewData && showBottomBar && !showContinuation && (
+          <motion.div
+            className="fixed bottom-0 left-0 right-0 z-30 flex flex-col shadow-[0_-6px_24px_rgba(0,0,0,0.1)]"
+            style={{
+              height: `${bottomBarH}vh`,
+              background: `linear-gradient(0deg, ${hexToRgba(toneColor, 0.42)}, rgba(250,249,246,0.98) 62%)`,
+              borderTop: `1px solid ${hexToRgba(toneColor, 0.55)}`,
+              overflow: 'hidden',
+            }}
+            initial={{ opacity: 0, y: 64 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 64 }}
+            transition={{ duration: 0.5 }}
+          >
           {/* 与右侧批注栏协调的色调描边：从右往左由深到浅，错落呼应 */}
           <div className="absolute inset-x-0 top-0 h-1 pointer-events-none" style={{ background: `linear-gradient(to left, ${hexToRgba(toneColor, 0.85)}, transparent 70%)` }} />
           {/* 拖动抓手：按住上下拖动自由调整高度 */}
@@ -1156,7 +1158,8 @@ export default function ReviewPanel() {
             </div>
           </div>
         </motion.div>
-      )}
+        )}
+      </AnimatePresence>
 
       {/* 隐藏的 9:16 分享卡片（导出用） */}
       {reviewData && (

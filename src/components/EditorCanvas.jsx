@@ -6,13 +6,17 @@ export default function EditorCanvas() {
   const { 
     articles, activeArticleId, updateContent, updateMeta, 
     ghostActive, ghostText, acceptGhost, clearGhost,
-    isThinking, resultsVisible, showBottomBar, isReviewing, bottomBarH
+    isThinking, resultsVisible, showBottomBar, isReviewing, bottomBarH,
+    showContinuation, setShowContinuation, setShowBottomBar,
   } = useWriterStore()
 
   const editorRef = useRef(null)
   const titleRef = useRef(null)
   const authorRef = useRef(null)
   const saveTimer = useRef(null)
+  const scrollAreaRef = useRef(null)
+  const contRef = useRef(null)
+  const contTouchY = useRef(null)
   const [isEmpty, setIsEmpty] = useState(true)
 
   const activeArticle = articles.find(a => a.id === activeArticleId)
@@ -85,10 +89,10 @@ export default function EditorCanvas() {
     }
   }
 
-  // 在原文中内嵌批注标记（mark + 序号角标）
+  // 批注标记：结果可见时在原文中内嵌标记与角标；切到续写模式时移除标记避免与续写文案混淆
   useEffect(() => {
     const editor = editorRef.current
-    if (!editor || !annotations.length || !resultsVisible) return
+    if (!editor) return
 
     // 先清除旧标记，避免残留角标数字
     editor.querySelectorAll('mark.anno-mark').forEach(m => {
@@ -96,6 +100,9 @@ export default function EditorCanvas() {
       clone.querySelectorAll('.anno-badge').forEach(b => b.remove())
       m.replaceWith(document.createTextNode(clone.textContent))
     })
+
+    if (showContinuation) return
+    if (!annotations.length || !resultsVisible) return
 
     annotations.forEach((anno, idx) => {
       if (!anno?.quote) return
@@ -129,20 +136,67 @@ export default function EditorCanvas() {
         if (found) break
       }
     })
-  }, [activeArticleId, resultsVisible, annotations])
+  }, [activeArticleId, resultsVisible, annotations, showContinuation])
+
+  // 编辑器滚动到最底部后继续向下滚动 → 切到续写模式：收起右侧边栏与下边栏，仅保留编辑器并展示续写
+  const revealContinuation = useCallback(() => {
+    setShowContinuation(true)
+    setShowBottomBar(false)
+  }, [setShowContinuation, setShowBottomBar])
+
+  const handleEditorWheel = useCallback((e) => {
+    const el = scrollAreaRef.current
+    if (!el || showContinuation || !resultsVisible) return
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30
+    const scrollable = el.scrollHeight > el.clientHeight + 30
+    if (e.deltaY > 0 && (nearBottom || !scrollable)) revealContinuation()
+  }, [showContinuation, resultsVisible, revealContinuation])
+
+  const handleEditorTouchStart = useCallback((e) => {
+    contTouchY.current = e.touches?.[0]?.clientY ?? null
+  }, [])
+
+  const handleEditorTouchMove = useCallback((e) => {
+    const el = scrollAreaRef.current
+    if (!el || contTouchY.current == null || showContinuation || !resultsVisible) return
+    const dy = contTouchY.current - e.touches[0].clientY
+    const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30
+    const scrollable = el.scrollHeight > el.clientHeight + 30
+    if (dy > 0 && (nearBottom || !scrollable)) {
+      revealContinuation()
+      contTouchY.current = null
+      return
+    }
+    contTouchY.current = e.touches[0].clientY
+  }, [showContinuation, resultsVisible, revealContinuation])
+
+  // 切到续写模式后，把续写内容滚动到视野内
+  useEffect(() => {
+    if (showContinuation && contRef.current && scrollAreaRef.current) {
+      const el = scrollAreaRef.current
+      el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
+    }
+  }, [showContinuation])
 
   return (
     <div
-      className={`flex-1 flex flex-col bg-editor relative overflow-hidden ${isReviewing ? 'editor-review-mode' : ''}`}
+      className={`flex-1 flex flex-col bg-editor relative overflow-hidden ${isReviewing && !showContinuation ? 'editor-review-mode' : ''}`}
       style={{
         // 右侧批注栏一出现就让出右列空间（编辑器整体左移，不被遮挡）；
-        // 下边栏升起时再同步压缩高度，两者配合形成"向左上"的留白
-        marginRight: isReviewing ? 432 : 0,
-        height: showBottomBar ? `calc(100% - ${bottomBarH}vh)` : '100%',
+        // 下边栏升起时再同步压缩高度，两者配合形成"向左上"的留白；
+        // 切到续写模式后恢复满宽满高，仅剩编辑器
+        marginRight: isReviewing && !showContinuation ? 432 : 0,
+        height: showBottomBar && !showContinuation ? `calc(100% - ${bottomBarH}vh)` : '100%',
         transition: 'margin-right 0.5s cubic-bezier(0.22, 1, 0.36, 1), height 0.5s cubic-bezier(0.22, 1, 0.36, 1)',
       }}
     >
-      <div className="editor-scroll-area flex-1 overflow-y-auto px-5 py-10">
+      <div
+        ref={scrollAreaRef}
+        onWheel={handleEditorWheel}
+        onTouchStart={handleEditorTouchStart}
+        onTouchMove={handleEditorTouchMove}
+        className="editor-scroll-area flex-1 overflow-y-auto px-5 py-10"
+      >
         <div className="max-w-[720px] mx-auto relative">
           {/* 元信息栏 */}
           <div className="mb-8">
@@ -184,6 +238,19 @@ export default function EditorCanvas() {
             )}
             <GhostTextOverlay />
           </div>
+
+          {/* 续写内容：切到续写模式后，紧跟在文段之后呈现 */}
+          {showContinuation && activeArticle?.review?.continuation && (
+            <div ref={contRef} className="mt-8 pt-6 border-t border-editor-border/50">
+              <div className="flex items-center gap-2 mb-4 text-xs text-editor-secondary/70 tracking-widest">
+                <span className="w-1 h-1 rounded-full bg-editor-accent/60" />
+                续写
+              </div>
+              <div className="font-serif-cn leading-editor text-base text-editor-text/85 whitespace-pre-line">
+                {activeArticle.review.continuation}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
