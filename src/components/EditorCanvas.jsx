@@ -6,7 +6,7 @@ export default function EditorCanvas() {
   const { 
     articles, activeArticleId, updateContent, updateMeta, 
     ghostActive, ghostText, acceptGhost, clearGhost,
-    isThinking, resultsVisible, showBottomBar
+    isThinking, resultsVisible, showBottomBar, isReviewing, bottomBarH
   } = useWriterStore()
 
   const editorRef = useRef(null)
@@ -132,7 +132,16 @@ export default function EditorCanvas() {
   }, [activeArticleId, resultsVisible, annotations])
 
   return (
-    <div className={`flex-1 flex flex-col bg-editor relative overflow-hidden ${showBottomBar ? 'editor-review-mode' : ''}`}>
+    <div
+      className={`flex-1 flex flex-col bg-editor relative overflow-hidden ${isReviewing ? 'editor-review-mode' : ''}`}
+      style={{
+        // 右侧批注栏一出现就让出右列空间（编辑器整体左移，不被遮挡）；
+        // 下边栏升起时再同步压缩高度，两者配合形成"向左上"的留白
+        marginRight: isReviewing ? 432 : 0,
+        height: showBottomBar ? `calc(100% - ${bottomBarH}vh)` : '100%',
+        transition: 'margin-right 0.5s cubic-bezier(0.22, 1, 0.36, 1), height 0.5s cubic-bezier(0.22, 1, 0.36, 1)',
+      }}
+    >
       <div className="editor-scroll-area flex-1 overflow-y-auto px-5 py-10">
         <div className="max-w-[720px] mx-auto relative">
           {/* 元信息栏 */}

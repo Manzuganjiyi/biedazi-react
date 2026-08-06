@@ -66,9 +66,9 @@
 }
 
 @media (min-width: 768px) {
-  /* 收缩后的编辑器：始终显示独立滚动条，可单独滚动而不影响批注 */
+  /* 右侧批注栏出现后：编辑器始终显示独立滚动条，可单独滚动而不影响批注。
+     让出右列空间由 EditorCanvas 通过 margin-right + height 完成，不再用 transform 缩放 */
   .editor-review-mode .editor-scroll-area {
-    transform: scale(0.62);
     overflow-y: scroll;
     scrollbar-width: thin;
     scrollbar-color: rgba(139, 115, 85, 0.55) transparent;

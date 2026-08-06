@@ -91,6 +91,17 @@ const WRITERS = [
 
 const WRITER_LINE = WRITERS.map((w) => `${w.name}-${w.work.replace(/《|》/g, '')}/${w.work2.replace(/《|》/g, '')}`).join('、')
 
+// 清单中的外国（非中国）作家，用于保证三位相似作家不全是中国人
+const FOREIGN_NAMES = new Set([
+  '莎士比亚', '狄更斯', '伍尔夫', '奥威尔', '石黑一雄', '乔伊斯', '司汤达',
+  '巴尔扎克', '雨果', '福楼拜', '莫泊桑', '普鲁斯特', '加缪', '米兰·昆德拉',
+  '卡夫卡', '黑塞', '茨威格', '卡尔维诺', '普希金', '列夫·托尔斯泰',
+  '陀思妥耶夫斯基', '契诃夫', '马克·吐温', '海明威', '菲茨杰拉德', '塞林格',
+  '马尔克斯', '博尔赫斯', '聂鲁达', '波德莱尔', '惠特曼', '艾略特',
+  '夏目漱石', '芥川龙之介', '川端康成', '三岛由纪夫', '太宰治', '村上春树',
+  '泰戈尔', '纪伯伦', '塞万提斯',
+])
+
 // ==================== 基于文本内容的真实评分逻辑 ====================
 function clamp(n, lo, hi) {
   return Math.min(hi, Math.max(lo, Math.round(n)))
@@ -250,7 +261,7 @@ ${WRITER_LINE}
   "scores": { "language": 0-100整数, "structure": 0-100整数, "imagery": 0-100整数, "emotion": 0-100整数, "innovation": 0-100整数, "total": 0-100整数 },
   "authors": [
     { "name": "从上述清单挑选的第1位风格最相似的作家名", "work": "该作家的代表作", "reason": "一句简短的话说明该作家与本文风格相似的原因，约20-40字", "similarity": 0-100整数（风格相似度百分比） },
-    { "name": "第2位风格最相似的作家名", "work": "该作家的代表作", "reason": "一句简短的话说明该作家与本文风格相似的原因，约20-40字", "similarity": 0-100整数（风格相似度百分比） },
+    { "name": "第2位风格最相似的作家名（三位中至少一位必须是外国作家）", "work": "该作家的代表作", "reason": "一句简短的话说明该作家与本文风格相似的原因，约20-40字", "similarity": 0-100整数（风格相似度百分比） },
     { "name": "第3位风格最相似的作家名", "work": "该作家的代表作", "reason": "一句简短的话说明该作家与本文风格相似的原因，约20-40字", "similarity": 0-100整数（风格相似度百分比） }
   ],
   "annotations": [
@@ -263,7 +274,7 @@ ${WRITER_LINE}
 2. styleColor 必须是合法的六位十六进制色号；toneMetaphor 必须是'（形容词）的（名词）'格式
 3. annotations 数组必须【正好 ${annoCount} 项】，绝对不能多——每项对应原文中约一个 400 字片段里最高光的那一句，每项约 50-70 字，多写会挤占输出预算导致前面字段截断，输出预算有限，请务必只写 ${annoCount} 项
 4. 每条 annotations 的 quote 必须从正文中【逐字完整摘录】一个【完整的句子】：从句子第一个字开始，到句号/问号/感叹号/省略号等句末标点为止（含句末标点）。绝不能改写、删减、截取半句、拼接或凭空编造；若原文里实在找不到完整的第 ${annoCount} 句，就挑一句真正存在的最短的完整句子，宁可句子短，不可编造
-5. authors 数组必须【正好 3 项】，且每位都严格出自上面的作家清单，work 必须是该作家真实存在的代表作；reason 必须是一句具体的、结合本文特点的相似理由（说明风格/笔法/题材上哪里像），禁止空话套话，禁止从清单外编造；similarity 必须是 0-100 之间的整数，表示该作家风格与本文的相似度占比（第一、二、三位依次递减，通常 35-40/25-30/15-20 这一档），且三位之和必须小于 100（代表不同维度的占比）
+5. authors 数组必须【正好 3 项】，且每位都严格出自上面的作家清单，work 必须是该作家真实存在的代表作；reason 必须是一句具体的、结合本文特点的相似理由（说明风格/笔法/题材上哪里像），禁止空话套话，禁止从清单外编造；similarity 必须是 0-100 之间的整数，表示该作家风格与本文的相似度占比（第一、二、三位依次递减，通常 35-40/25-30/15-20 这一档），且三位之和必须小于 100（代表不同维度的占比）；【重要】三位中至少有一位必须是清单中的外国作家（非中国作家，如托尔斯泰、川端康成、卡夫卡、海明威、村上春树等），不要三位全是中国人
 6. tone 只能是 melancholy(清冷忧郁)、passionate(热烈激情)、serene(宁静平和)、mysterious(神秘幽微)、humorous(幽默诙谐) 之一
 7. scores 的五个分项与 total 都必须是 0-100 之间的整数，且必须严格对照评分标准与你的评语来给，禁止一律给高分
 8. 只输出这一个 JSON 对象，禁止复述作家清单，禁止任何清单之外的解释文字`
@@ -495,6 +506,23 @@ function normalizeAuthors(parsed) {
     result.forEach((x) => { x.similarity = Math.max(1, Math.round(x.similarity * scale)) })
     // 缩放后仍保持严格降序
     result.sort((a, b) => b.similarity - a.similarity)
+  }
+
+  // 保证三位里至少有一位外国作家：若全是中国人，把相似度最低的一位换成外国作家
+  if (result.length >= 3 && !result.some((x) => FOREIGN_NAMES.has(x.name))) {
+    const pool = WRITERS.filter((w) => FOREIGN_NAMES.has(w.name) && !used.has(w.name))
+    if (pool.length) {
+      const w = pool[Math.floor(Math.random() * pool.length)]
+      const minSim = Math.max(1, (result[2]?.similarity ?? 18) - 4)
+      result[2] = {
+        name: w.name,
+        work: w.work,
+        work2: w.work2,
+        reason: FALLBACK_REASONS[2] || FALLBACK_REASONS[0],
+        similarity: minSim,
+      }
+      result.sort((a, b) => b.similarity - a.similarity)
+    }
   }
   return result
 }
