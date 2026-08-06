@@ -129,11 +129,14 @@ function RadarChart({ data, size = 120 }) {
   )
 }
 
-// ==================== 调性比喻文案 ====================
+// ==================== 调性比喻文案（艺术衬线字体）====================
 function ToneMetaphor({ text }) {
   if (!text) return null
   return (
-    <div className="text-[13px] italic leading-relaxed" style={{ color: '#8B7355' }}>
+    <div
+      className="font-serif-cn italic tracking-wide text-center"
+      style={{ color: '#8B7355', fontSize: 16, letterSpacing: '0.08em' }}
+    >
       {text}
     </div>
   )
@@ -244,6 +247,45 @@ function ThinkingProcess({ steps, activeIndex, progress }) {
   )
 }
 
+// ==================== 相似度液体圆球（瓶中水占比）====================
+function LiquidBall({ percent, size = 42 }) {
+  const p = Math.max(2, Math.min(100, Number(percent) || 0))
+  const cx = size / 2
+  const r = size / 2 - 1.5
+  const liquidH = r * 2 * (p / 100)
+  const yTop = size / 2 + r - liquidH
+  return (
+    <div className="flex flex-col items-center gap-0.5 flex-shrink-0" style={{ width: size + 6 }}>
+      <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
+        <defs>
+          <clipPath id={`lb-clip-${p}-${size}`}>
+            <circle cx={cx} cy={cx} r={r} />
+          </clipPath>
+        </defs>
+        {/* 瓶体淡色 */}
+        <circle cx={cx} cy={cx} r={r} fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.25)" strokeWidth="1.5" />
+        {/* 液体（深色，按比例从下往上） */}
+        <g clipPath={`url(#lb-clip-${p}-${size})`}>
+          <rect x={0} y={yTop} width={size} height={liquidH + 1} fill="#4A6A4A" opacity="0.85" />
+          {/* 液面亮光 */}
+          <ellipse cx={cx} cy={yTop + 1.5} rx={r - 1} ry={2.5} fill="rgba(255,255,255,0.35)" />
+          {/* 液面波纹 */}
+          <path
+            d={`M ${cx - r} ${yTop + 4} Q ${cx - r / 2} ${yTop - 1} ${cx} ${yTop + 3} T ${cx + r} ${yTop + 3}`}
+            fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.2"
+          />
+          {/* 液体气泡 */}
+          <circle cx={cx - r / 2.4} cy={yTop + liquidH * 0.55} r={1.6} fill="rgba(255,255,255,0.5)" />
+          <circle cx={cx + r / 3} cy={yTop + liquidH * 0.3} r={1.1} fill="rgba(255,255,255,0.4)" />
+        </g>
+        {/* 玻璃高光 */}
+        <ellipse cx={cx - r * 0.38} cy={cx - r * 0.4} rx={r * 0.22} ry={r * 0.45} fill="rgba(255,255,255,0.5)" transform={`rotate(-24 ${cx - r * 0.38} ${cx - r * 0.4})`} />
+      </svg>
+      <div className="text-[10px] font-semibold text-editor-accent leading-none">{p}%</div>
+    </div>
+  )
+}
+
 // ==================== 相似作家卡片（三位，每位两部代表作）====================
 function AuthorsCard({ authors, fill }) {
   const list = Array.isArray(authors) && authors.length ? authors : []
@@ -259,9 +301,7 @@ function AuthorsCard({ authors, fill }) {
           key={i}
           className={`flex items-center gap-2.5 ${fill ? 'flex-1 items-center' : ''} ${i < list.length - 1 ? 'border-b border-black/5' : ''}`}
         >
-          <div className="w-9 flex-shrink-0 text-[11px] font-semibold text-editor-accent text-center">
-            {author.similarity}%
-          </div>
+          <LiquidBall percent={author.similarity} />
           <div className="min-w-0">
             <div className="flex items-baseline gap-1.5">
               <span className="text-[13px] font-medium text-editor-text leading-tight">{author.name}</span>
@@ -320,22 +360,7 @@ function AnnotationList({ annotations, onAnchorClick, reading }) {
   )
 }
 
-// ==================== 审稿意见卡片 ====================
-function ReviewSection({ title, children }) {
-  const segments = splitText(children)
-  if (!children) return null
-  return (
-    <div className="mb-3.5 last:mb-0">
-      <div className="text-sm font-semibold text-editor-accent mb-1.5">{title}</div>
-      <div className="text-[13px] text-editor-text leading-relaxed">
-        {segments.map((seg, j) => (
-          <p key={j} className={j > 0 ? 'mt-1.5' : ''}>{seg}</p>
-        ))}
-      </div>
-    </div>
-  )
-}
-
+// ==================== 审稿意见卡片（自然段落，无小标题）====================
 function SummaryCard({ review, fill }) {
   const hasStructured = review?.textOverview || review?.hardIssues || review?.literaryAnalysis || review?.conclusion
   const [revealClosing, setRevealClosing] = useState(false)
@@ -373,6 +398,14 @@ function SummaryCard({ review, fill }) {
     return () => cancelAnimationFrame(raf)
   }, [revealClosing, fill])
 
+  // 把四段内容连成自然段落，段与段之间用空行过渡，不显示任何小标题
+  const flowSegments = [
+    review?.textOverview,
+    review?.hardIssues,
+    review?.literaryAnalysis,
+    review?.conclusion,
+  ].filter((s) => String(s || '').trim())
+
   return (
     <motion.div 
       className={`glass-card p-4 flex flex-col ${fill ? 'h-full' : 'mb-3'}`}
@@ -380,16 +413,17 @@ function SummaryCard({ review, fill }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.3 }}
     >
-      {hasStructured ? (
-        <div ref={contentRef} onScroll={handleScroll} className={fill ? 'flex-1 overflow-y-auto' : ''}>
-          <ReviewSection title="① 文本概览">{review.textOverview}</ReviewSection>
-          <ReviewSection title="② 硬伤核查">{review.hardIssues}</ReviewSection>
-          <ReviewSection title="③ 文学评析">{review.literaryAnalysis}</ReviewSection>
-          <ReviewSection title="④ 结论">{review.conclusion}</ReviewSection>
-        </div>
-      ) : (
-        <div className="text-sm text-editor-text leading-relaxed whitespace-pre-line">{review?.summary}</div>
-      )}
+      <div ref={contentRef} onScroll={handleScroll} className={`text-[13px] text-editor-text leading-relaxed ${fill ? 'flex-1 overflow-y-auto' : ''}`}>
+        {hasStructured ? (
+          flowSegments.map((seg, j) => (
+            <div key={j} className={`whitespace-pre-line ${j > 0 ? 'mt-3' : ''}`}>
+              {seg}
+            </div>
+          ))
+        ) : (
+          <div className="whitespace-pre-line">{review?.summary}</div>
+        )}
+      </div>
       {review?.emotionalClosing && (
         <motion.div
           initial={false}
@@ -411,21 +445,21 @@ function SummaryCard({ review, fill }) {
 
 // ==================== 9:16 分享卡片（导出图片用）====================
 const ShareCard = React.forwardRef(function ShareCard({ review, article, color }, ref) {
-  const sections = [
-    { label: '① 文本概览', content: review.textOverview },
-    { label: '② 硬伤核查', content: review.hardIssues },
-    { label: '③ 文学评析', content: review.literaryAnalysis },
-    { label: '④ 结论', content: review.conclusion },
-  ].filter((s) => s.content)
-
-  const totalChars = sections.reduce((a, s) => a + (s.content || '').length, 0)
+  // 总评以自然段落呈现，无小标题
+  const flowSegments = [
+    review.textOverview,
+    review.hardIssues,
+    review.literaryAnalysis,
+    review.conclusion,
+  ].filter((s) => String(s || '').trim())
+  const totalChars = flowSegments.join('').length
   const contentWidth = 378
-  const contentArea = 400
+  const contentArea = 360
   let bodyFont = 13
-  while (bodyFont > 7.5) {
+  while (bodyFont > 8) {
     const perLine = Math.max(1, Math.floor(contentWidth / bodyFont))
     const lines = Math.ceil(totalChars / perLine)
-    const px = lines * bodyFont * 1.8 + sections.length * 26
+    const px = lines * bodyFont * 1.8 + flowSegments.length * 10
     if (px <= contentArea) break
     bodyFont -= 0.5
   }
@@ -465,20 +499,23 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.7)' }}>
           <RadarChart data={review.radar} size={110} />
           {review.toneMetaphor && (
-            <div style={{ fontSize: 13, fontStyle: 'italic', color: accent, lineHeight: 1.5 }}>
+            <div style={{ fontSize: 14, fontStyle: 'italic', color: accent, lineHeight: 1.5 }}>
               {review.toneMetaphor}
             </div>
           )}
         </div>
 
-        {/* 相似作家 */}
+        {/* 相似作家（液体圆球表示占比） */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
           {(review.authors || []).map((a, i) => (
             <div
               key={i}
-              style={{ flex: 1, background: 'rgba(255,255,255,0.7)', borderRadius: 8, padding: '8px 10px', textAlign: 'center' }}
+              style={{ flex: 1, background: 'rgba(255,255,255,0.7)', borderRadius: 8, padding: '8px 10px', textAlign: 'center', overflow: 'hidden' }}
             >
-              <div style={{ fontSize: 13, color: ink, fontWeight: 600 }}>
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>
+                <LiquidBall percent={a.similarity} size={34} />
+              </div>
+              <div style={{ fontSize: 13, color: ink, fontWeight: 600, lineHeight: 1.3 }}>
                 {a.name} <span style={{ fontSize: 10, color: sub, fontWeight: 400 }}>{a.work}</span>
               </div>
               <div style={{ fontSize: 10, color: sub, marginTop: 3, lineHeight: 1.5 }}>{a.reason}</div>
@@ -486,12 +523,11 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
           ))}
         </div>
 
-        {/* 四段审稿意见 */}
+        {/* 总评：自然段落，无小标题 */}
         <div style={{ flex: '1 0 auto' }}>
-          {sections.map((s) => (
-            <div key={s.label} style={{ marginBottom: 10 }}>
-              <div style={{ fontSize: 11, fontWeight: 600, color: accent, marginBottom: 3 }}>{s.label}</div>
-              <div style={{ fontSize: bodyFont, lineHeight: 1.8, color: ink, whiteSpace: 'pre-line' }}>{s.content}</div>
+          {flowSegments.map((seg, j) => (
+            <div key={j} style={{ fontSize: bodyFont, lineHeight: 1.8, color: ink, whiteSpace: 'pre-line', marginBottom: 8 }}>
+              {seg}
             </div>
           ))}
         </div>
@@ -649,15 +685,20 @@ export default function ReviewPanel() {
               -webkit-backdrop-filter: none !important;
               backdrop-filter: none !important;
             }
+            html, body, #root, #root > div {
+              overflow: visible !important;
+              height: auto !important;
+            }
           `
           doc.head.appendChild(style)
-          // 确保分享卡在克隆文档中可见可定位
+          // 确保分享卡在克隆文档中可见可定位，且不被任何父级裁剪
           const root = doc.getElementById('share-card-root')
           if (root) {
             root.style.position = 'absolute'
             root.style.left = '0'
             root.style.top = '0'
             root.style.zIndex = '0'
+            root.style.overflow = 'visible'
           }
         },
       })
@@ -693,6 +734,10 @@ export default function ReviewPanel() {
               -webkit-backdrop-filter: none !important;
               backdrop-filter: none !important;
             }
+            html, body, #root, #root > div {
+              overflow: visible !important;
+              height: auto !important;
+            }
           `
           doc.head.appendChild(style)
           const root = doc.getElementById('share-card-root')
@@ -701,6 +746,7 @@ export default function ReviewPanel() {
             root.style.left = '0'
             root.style.top = '0'
             root.style.zIndex = '0'
+            root.style.overflow = 'visible'
           }
         },
       })
@@ -769,8 +815,8 @@ export default function ReviewPanel() {
           onWheel={handleWheel}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
-          className="fixed bottom-0 left-0 right-0 z-50 bg-editor rounded-t-2xl shadow-[0_-6px_24px_rgba(0,0,0,0.12)] flex flex-col"
-          style={{ height: '62vh' }}
+          className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl shadow-[0_-6px_24px_rgba(0,0,0,0.12)] flex flex-col"
+          style={{ height: '62vh', background: `linear-gradient(0deg, ${hexToRgba(toneColor, 0.38)}, #FAF9F6 60%)`, borderTop: `1px solid ${hexToRgba(toneColor, 0.5)}` }}
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
@@ -1009,15 +1055,20 @@ export default function ReviewPanel() {
         </div>
       </div>
 
-      {/* 下边栏：直接呈现有效信息（分数 / 相似作家 / 审稿意见），无标题栏 */}
+      {/* 下边栏：直接呈现有效信息（分数 / 相似作家 / 审稿意见），无标题栏；色调与文风呼应，与右侧批注栏的横向粉刷形成错落 */}
       {showResults && !error && reviewData && showBottomBar && (
         <motion.div
-          className="fixed bottom-0 left-0 right-0 z-30 h-[50vh] flex flex-col border-t border-black/10 shadow-[0_-6px_24px_rgba(0,0,0,0.1)]"
-          style={{ background: `linear-gradient(0deg, ${hexToRgba(toneColor, 0.28)}, rgba(250,249,246,0.98) 55%)` }}
+          className="fixed bottom-0 left-0 right-0 z-30 h-[50vh] flex flex-col shadow-[0_-6px_24px_rgba(0,0,0,0.1)]"
+          style={{
+            background: `linear-gradient(0deg, ${hexToRgba(toneColor, 0.42)}, rgba(250,249,246,0.98) 62%)`,
+            borderTop: `1px solid ${hexToRgba(toneColor, 0.55)}`,
+          }}
           initial={{ opacity: 0, y: 64 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
+          {/* 与右侧批注栏协调的色调描边：从右往左由深到浅，错落呼应 */}
+          <div className="absolute inset-x-0 top-0 h-1 pointer-events-none" style={{ background: `linear-gradient(to left, ${hexToRgba(toneColor, 0.85)}, transparent 70%)` }} />
           {/* 内容三栏：等高分栏，视觉整齐 */}
           <div className="flex flex-1 min-h-0">
             <div className="w-[240px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto">
