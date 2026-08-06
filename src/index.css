@@ -27,6 +27,14 @@
   *::-webkit-scrollbar-track {
     background: transparent;
   }
+
+  /* 滚动时预留给滚动条宽度，防止右侧边框随滚动条出现/消失而抖动（Layout Shift） */
+  html, body {
+    scrollbar-gutter: stable;
+  }
+  .overflow-y-auto, .overflow-y-scroll, .overflow-auto {
+    scrollbar-gutter: stable;
+  }
 }
 
 @layer components {

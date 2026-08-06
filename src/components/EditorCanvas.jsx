@@ -6,7 +6,7 @@ export default function EditorCanvas() {
   const { 
     articles, activeArticleId, updateContent, updateMeta, 
     ghostActive, ghostText, acceptGhost, clearGhost,
-    isThinking, resultsVisible
+    isThinking, resultsVisible, showBottomBar
   } = useWriterStore()
 
   const editorRef = useRef(null)
@@ -132,7 +132,7 @@ export default function EditorCanvas() {
   }, [activeArticleId, resultsVisible, annotations])
 
   return (
-    <div className={`flex-1 flex flex-col bg-editor relative overflow-hidden ${resultsVisible ? 'editor-review-mode' : ''}`}>
+    <div className={`flex-1 flex flex-col bg-editor relative overflow-hidden ${showBottomBar ? 'editor-review-mode' : ''}`}>
       <div className="editor-scroll-area flex-1 overflow-y-auto px-5 py-10">
         <div className="max-w-[720px] mx-auto relative">
           {/* 元信息栏 */}

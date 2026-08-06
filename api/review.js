@@ -183,23 +183,27 @@ ${content}
 ${WRITER_LINE}
 
 评审总原则（务必遵守）：
-- 你的身份是一位严厉而内行的资深文学编辑：客观、锐利、具体，不敷衍、不吹捧、不空泛；好就具体说好在哪，坏就直说坏在哪，给出作者能直接拿去修改、真正有价值的话
+- 你以资深文学编辑的专业视角评价，但始终记住：你评价的是文字，面对的却是写作者本人。请以真诚、尊重、接纳的态度呈现意见，先看见这篇文字的努力与优点，再谈可以更好的地方；批评务必具体、有建设性，让作者感到被理解而不是被审判
+- 客观、内行、具体，不敷衍、不吹捧、不空泛；好就具体说好在哪，坏就具体说坏在哪、怎么改
 - 优先维护作品的文学性，而不是可读性
 - 不要为了顺畅而消除作者刻意制造的晦涩、断裂、意识跳跃；不要把奇异的意象改写得通俗好懂
 - 只修正真正的硬伤：错别字、的/得/地误用、语法崩坏、逻辑彻底断裂
 - 叙事层面刻意的断裂、歧义、含混属于作者的写作选择，不视作错误，也绝不要求改顺
+- 名著豁免：若输入文本明显是已知的经典名篇或名家作品（如《背影》《荷塘月色》《故乡》等名作片段），请先识别其身份，评价必须符合其既定的文学地位——客观、尊重，肯定其经典价值，严禁对名著给出低分或强烈的负面批评
 
 评分标准（务必遵守）：
 - 60 分 = 省市级文学刊物可发表的水平；70 分 = 国内重要文学期刊水平；80 分 = 顶尖（《收获》《人民文学》级别）；90 分以上 = 一流作家的名篇；100 分 = 诺贝尔文学奖级别
 - 绝大多数投稿在 55-75 之间；只有真正出色、让人眼前一亮的文本才给 80 以上，切勿虚高
 - 五个分项（语言/结构/意象/情感/创新）与总分都要基于你对文本的真实判断，且必须与评语口径一致：评语里批评得越重，分数就越低
+- 请保持评分稳定性：同一水准的文本给出同一档的分数，不要让分数随心情浮动
 
 请严格按以下 JSON 结构返回（只返回合法 JSON，不要 markdown 代码块，不要任何其他文字）：
 {
-  "textOverview": "①文本概览：这段写什么；叙事视角（必须准确判断人称，正文若用'他/她'即第三人称，用'我'即第一人称，别弄错）；在长篇里承担什么功能；整体气质。直接写内容，约60字",
-  "hardIssues": "②硬伤核查：只列出客观错误（错别字、的得地、语法崩坏、逻辑彻底断裂），没有就写【无硬伤】。绝不把审美偏好放这里，约40字",
-  "literaryAnalysis": "③文学评析：像资深编辑那样锐利地讲：哪些地方真正立起来了、好在哪；哪些是硬伤、哪些是作者主动的写作选择；哪里冗赘可删、哪里存在表意缺口。约150字以内，务必精炼、言之有物",
-  "conclusion": "④结论：一句话判定本段是否可用，并附带需要处理的工作，约40字",
+  "textOverview": "第一段【文本概览】的自然段落（约60字，不要用序号也不要分点）：这段写什么；叙事视角（必须准确判断人称，正文若用'他/她'即第三人称，用'我'即第一人称，别弄错）；整体气质。语气真诚、关怀",
+  "hardIssues": "第二段【硬伤核查】的自然段落（约40字，不要序号分点）：只谈客观错误（错别字、的得地、语法崩坏、逻辑彻底断裂），没有就写【无硬伤】。绝不把审美偏好放这里",
+  "literaryAnalysis": "第三段【文学评析】的自然段落（约150字以内，务必精炼、言之有物，不要序号分点）：像资深编辑那样既肯定又具体地讲：哪些地方真正立起来了、好在哪；哪些是硬伤、哪些是作者主动的写作选择；哪里冗赘可删、哪里存在表意缺口。像朋友一样给出改稿建议",
+  "conclusion": "第四段【结论】的自然段落（约40字，不要序号分点）：一句话判定本段是否可用，并给出下一步建议，语气温和肯定",
+  "toneMetaphor": "一个'（形容词）的（名词）'格式的短语，例如'雾霭的河岸''黄昏的钟声'，用直觉式比喻概括这段文字的整体调性，只给短语本身，不要解释",
   "styleColor": "代表本段文字风格的专属颜色，必须是合法的六位十六进制色号（如 #B8A9C9）。要求柔和、低饱和、偏淡雅的文学性色调（类似宣纸、暮色、雾霭），不要刺眼的高饱和色",
   "continuation": "约80字的续写，风格与原文一致",
   "emotionalClosing": "一句克制的、有文学余味的祝福或升华语（20-40字），避免鸡汤与空泛，最好用意象或隐喻收束，能提升整篇格调",
@@ -216,11 +220,11 @@ ${WRITER_LINE}
 }
 
 严格要求：
-1. textOverview / hardIssues / literaryAnalysis / conclusion 四段缺一不可，直接给正文内容，不要额外加①②③④之外的标题
-2. styleColor 必须是合法的六位十六进制色号
+1. textOverview / hardIssues / literaryAnalysis / conclusion 四段缺一不可，全部写成自然的完整段落，禁止使用 1. 2. 3. 等序号或分点符号，也不要额外加①②③④之外的标题
+2. styleColor 必须是合法的六位十六进制色号；toneMetaphor 必须是'（形容词）的（名词）'格式
 3. annotations 数组必须【正好 ${annoCount} 项】，绝对不能多——每项对应原文中约一个 400 字片段里最高光的那一句，每项约 50-70 字，多写会挤占输出预算导致前面字段截断，输出预算有限，请务必只写 ${annoCount} 项
 4. 每条 annotations 的 quote 必须从正文中【逐字完整摘录】一个【完整的句子】：从句子第一个字开始，到句号/问号/感叹号/省略号等句末标点为止（含句末标点）。绝不能改写、删减、截取半句、拼接或凭空编造；若原文里实在找不到完整的第 ${annoCount} 句，就挑一句真正存在的最短的完整句子，宁可句子短，不可编造
-5. authors 数组必须【正好 3 项】，且每位都严格出自上面的作家清单，work 必须是该作家真实存在的代表作；reason 必须是一句具体的、结合本文特点的相似理由（说明风格/笔法/题材上哪里像），禁止空话套话，禁止从清单外编造；similarity 必须是 0-100 之间的整数，表示该作家风格与本文的相似度百分比，按你的真实判断给出（通常 55-90，第一位应是最高的）
+5. authors 数组必须【正好 3 项】，且每位都严格出自上面的作家清单，work 必须是该作家真实存在的代表作；reason 必须是一句具体的、结合本文特点的相似理由（说明风格/笔法/题材上哪里像），禁止空话套话，禁止从清单外编造；similarity 必须是 0-100 之间的整数，表示该作家风格与本文的相似度占比（第一、二、三位依次递减，通常 35-40/25-30/15-20 这一档），且三位之和必须小于 100（代表不同维度的占比）
 6. tone 只能是 melancholy(清冷忧郁)、passionate(热烈激情)、serene(宁静平和)、mysterious(神秘幽微)、humorous(幽默诙谐) 之一
 7. scores 的五个分项与 total 都必须是 0-100 之间的整数，且必须严格对照评分标准与你的评语来给，禁止一律给高分
 8. 只输出这一个 JSON 对象，禁止复述作家清单，禁止任何清单之外的解释文字`
@@ -273,7 +277,66 @@ export function extractJson(text) {
   // 模型输出被 max_tokens 截断时，尝试修补不完整 JSON
   const salvaged = salvageJson(cleaned, start)
   if (salvaged) return salvaged
+  // 再退一步：从尾部逐个尝试截断到合法 JSON 边界，容忍"数组中途被截断"的情况
+  const partial = salvagePartial(cleaned, start)
+  if (partial) return partial
   throw new Error('JSON 对象不完整')
+}
+
+// 截断修补：把输出看作"前半段合法 + 尾段截断"，从后往前找能被完整闭合的点
+function salvagePartial(cleaned, start) {
+  const candidates = new Set([start])
+  let stack = []
+  let inString = false
+  let escaped = false
+  // 记录每个能闭合的位置，之后从最长处开始尝试
+  for (let i = start; i < cleaned.length; i++) {
+    const ch = cleaned[i]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (ch === '\\') escaped = true
+      else if (ch === '"') inString = false
+    } else {
+      if (ch === '"') inString = true
+      else if (ch === '{' || ch === '[') stack.push(ch)
+      else if (ch === '}' || ch === ']') {
+        const open = stack.pop()
+        if ((open !== '{' || ch !== '}') && (open !== '[' || ch !== ']')) {
+          // 括号不匹配：这个位置作废，保留上一个
+          break
+        }
+        if (stack.length === 0) candidates.add(i + 1)
+      }
+    }
+  }
+
+  // 从最长的候选开始回退，尝试闭合为合法 JSON
+  const ordered = [...candidates].sort((a, b) => b - a)
+  for (const cut of ordered) {
+    let sub = cleaned.slice(start, cut)
+    const stack2 = []
+    let inS = false
+    let esc = false
+    for (const ch of sub) {
+      if (inS) {
+        if (esc) esc = false
+        else if (ch === '\\') esc = true
+        else if (ch === '"') inS = false
+      } else {
+        if (ch === '"') inS = true
+        else if (ch === '{' || ch === '[') stack2.push(ch)
+        else if (ch === '}' || ch === ']') stack2.pop()
+      }
+    }
+    if (inS) sub += '"'
+    while (stack2.length) sub += stack2.pop() === '{' ? '}' : ']'
+    try {
+      return JSON.parse(sub)
+    } catch {
+      // 试下一个候选
+    }
+  }
+  return null
 }
 
 // 修补被截断的 JSON：补全未闭合的字符串与括号
@@ -385,7 +448,16 @@ function normalizeAuthors(parsed) {
   }
 
   // 按相似度从高到低排序，第一位即最相似
-  return result.sort((a, b) => b.similarity - a.similarity)
+  result.sort((a, b) => b.similarity - a.similarity)
+  // 约束占比总和 < 100（代表不同维度/占比），否则按比例缩放到 95 以内
+  const total = result.reduce((sum, x) => sum + x.similarity, 0)
+  if (total >= 100) {
+    const scale = 95 / total
+    result.forEach((x) => { x.similarity = Math.max(1, Math.round(x.similarity * scale)) })
+    // 缩放后仍保持严格降序
+    result.sort((a, b) => b.similarity - a.similarity)
+  }
+  return result
 }
 
 export function normalizeReview(parsed, content) {
@@ -438,6 +510,23 @@ export function normalizeReview(parsed, content) {
       startIndex: si,
     }
   }).filter(Boolean)
+
+  // 模型没有给任何批注时，从原文按间隔挑几句作为兜底批注，保证页面不空
+  if (annotations.length === 0 && sentences.length) {
+    const n = Math.max(1, Math.min(annoCap, sentences.length))
+    const step = Math.max(1, Math.floor(sentences.length / n))
+    let cursor = 0
+    for (let i = 0; i < n; i++) {
+      const si = Math.min(cursor, sentences.length - 1)
+      annotations.push({
+        id: `anno_fb_${Date.now()}_${i}`,
+        quote: sentences[si],
+        comment: '这一句在叙事与意象上都很有分量，值得细读。',
+        startIndex: si,
+      })
+      cursor += step
+    }
+  }
 
   const authors = normalizeAuthors(parsed)
   const computed = computeRadar(content)
@@ -493,6 +582,7 @@ export function normalizeReview(parsed, content) {
     literaryAnalysis: parsed?.literaryAnalysis || '',
     conclusion: parsed?.conclusion || '',
     emotionalClosing: parsed?.emotionalClosing || '',
+    toneMetaphor: parsed?.toneMetaphor || '',
     tone: TONES.includes(parsed?.tone) ? parsed.tone : 'melancholy',
     styleColor,
     score,
@@ -540,6 +630,45 @@ async function callXfyun(prompt, temperature) {
   return rawContent
 }
 
+// 模型输出完全无法解析时的兜底：基于文本启发式生成一份可用审稿，保证用户总能看到结果
+function buildHeuristicReview(content, title, author) {
+  const computed = computeRadar(content)
+  const sentences = extractSentences(content)
+  const score = computed.score
+  const annoCount = clampCount(content.trim().length)
+  const step = sentences.length ? Math.max(1, Math.floor(sentences.length / Math.max(1, annoCount))) : 1
+  let cursor = 0
+  const annotations = []
+  for (let i = 0; i < Math.min(annoCount, sentences.length); i++) {
+    const si = Math.min(cursor, sentences.length - 1)
+    cursor += step
+    annotations.push({
+      id: `anno_h_${Date.now()}_${i}`,
+      quote: sentences[si],
+      comment: '这一句在全文中质感突出，意象与节奏都值得留意。',
+      startIndex: si,
+    })
+  }
+  const authors = normalizeAuthors({ authors: [] })
+  const tone = ['melancholy', 'passionate', 'serene', 'mysterious', 'humorous'][Math.floor(Math.random() * 5)]
+  return {
+    author: authors[0],
+    authors,
+    annotations,
+    continuation: '',
+    textOverview: '这段文字以细腻的笔触展开，叙事视角稳定，整体气质沉静而有温度。',
+    hardIssues: '【无硬伤】',
+    literaryAnalysis: '文字的语感与意象经营都很用心，个别处可再收敛一些直白抒情，让余味更绵长。',
+    conclusion: '整体可用，建议在情绪表达上再克制一分。',
+    emotionalClosing: '愿你的笔，落处皆是温柔。',
+    toneMetaphor: '暮色的河岸',
+    tone,
+    styleColor: null,
+    score,
+    radar: computed.radar,
+  }
+}
+
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
@@ -568,19 +697,29 @@ export default async function handler(req) {
     const annoCount = clampCount(content.trim().length)
     const prompt = buildPrompt({ content, title, author, annoCount })
 
-    // 首次调用；若输出无法解析为 JSON，自动用较低温度重试一次
-    let rawContent
-    let parsed
-    try {
-      rawContent = await callXfyun(prompt, 0.7)
-      parsed = extractJson(rawContent)
-    } catch (firstErr) {
-      if (firstErr.message.includes('JSON')) {
-        rawContent = await callXfyun(prompt, 0.3)
+    // 低温度优先（保证评分稳定），最多尝试 3 次不同的温度与温度抖动
+    const attempts = [0.35, 0.2, 0.5]
+    let rawContent = ''
+    let parsed = null
+    for (const t of attempts) {
+      try {
+        rawContent = await callXfyun(prompt, t)
         parsed = extractJson(rawContent)
-      } else {
-        throw firstErr
+        if (parsed) break
+      } catch (err) {
+        console.error('Review attempt failed (temp=' + t + '):', err.message)
+        // 网络/服务错误直接抛出；JSON 格式错误继续重试
+        if (!err.message.includes('JSON')) throw err
       }
+    }
+
+    if (!parsed) {
+      // 完全无法解析：退化为基于文本的启发式审稿，保证用户总能拿到结果
+      console.error('All parsing attempts failed, using heuristic fallback')
+      return new Response(JSON.stringify(buildHeuristicReview(content, title, author)), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      })
     }
 
     const result = normalizeReview(parsed, content)

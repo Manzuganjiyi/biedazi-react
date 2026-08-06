@@ -33,8 +33,8 @@ export default function FloatingActionBall() {
 
   const tooltipText = isDone ? '返回编辑' : 'AI 锐评'
 
-  // 下边栏升起时，把悬浮球抬到其上方，避免遮挡总评；移动端抽屉自带关闭按钮，直接隐藏
-  if (showBottomBar && isMobile) return null
+  // 移动端底部抽屉自带关闭按钮，审稿期间隐藏悬浮球，避免遮挡
+  if (isMobile && isReviewing) return null
 
   return (
     <motion.button

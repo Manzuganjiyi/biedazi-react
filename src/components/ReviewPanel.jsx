@@ -55,7 +55,7 @@ const splitText = (text, target = 40, maxSeg = 12) => {
   return segments
 }
 
-// ==================== 雷达图组件 ====================
+// ==================== 五星（五边形雷达）评级图：隐藏具体分数，仅保留图形 + 调性比喻 ====================
 function RadarChart({ data, size = 120 }) {
   const labels = ['语言', '结构', '意象', '情感', '创新']
   const values = [data.language, data.structure, data.imagery, data.emotion, data.innovation]
@@ -70,7 +70,7 @@ function RadarChart({ data, size = 120 }) {
     return `${center + r * Math.cos(angle)},${center + r * Math.sin(angle)}`
   }).join(' ')
 
-  const gridPoints = [0.2, 0.4, 0.6, 0.8, 1].map(scale => {
+  const gridPoints = [0.25, 0.5, 0.75, 1].map(scale => {
     return Array.from({ length: 5 }, (_, i) => {
       const angle = i * angleStep - Math.PI / 2
       const r = radius * scale
@@ -78,8 +78,8 @@ function RadarChart({ data, size = 120 }) {
     }).join(' ')
   })
 
-  // 小分标注在五个顶点周边
-  const labelOffset = radius * 0.3 + 8
+  // 外圈标签只显示维度名，不显示分数
+  const labelOffset = radius * 0.34 + 8
   const labelPos = values.map((_, i) => {
     const angle = i * angleStep - Math.PI / 2
     return {
@@ -92,21 +92,23 @@ function RadarChart({ data, size = 120 }) {
     <div className="flex items-center justify-center">
       <svg width={size} height={size} className="overflow-visible">
         {gridPoints.map((pts, i) => (
-          <polygon key={i} points={pts} fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="0.5" />
+          <polygon key={i} points={pts} fill="none" stroke="rgba(0,0,0,0.1)" strokeWidth="0.7" />
         ))}
         {Array.from({ length: 5 }, (_, i) => {
           const angle = i * angleStep - Math.PI / 2
           const x2 = center + radius * Math.cos(angle)
           const y2 = center + radius * Math.sin(angle)
-          return <line key={i} x1={center} y1={center} x2={x2} y2={y2} stroke="rgba(0,0,0,0.1)" strokeWidth="0.5" />
+          return <line key={i} x1={center} y1={center} x2={x2} y2={y2} stroke="rgba(0,0,0,0.14)" strokeWidth="0.7" />
         })}
-        <polygon points={points} fill="rgba(139,115,85,0.15)" stroke="#8B7355" strokeWidth="1.5" />
+        {/* 外圈边界加粗清晰，轮廓锐利 */}
+        <polygon points={gridPoints[3]} fill="none" stroke="rgba(0,0,0,0.4)" strokeWidth="1.6" />
+        <polygon points={points} fill="rgba(139,115,85,0.18)" stroke="#8B7355" strokeWidth="2" strokeLinejoin="round" />
         {values.map((v, i) => {
           const angle = i * angleStep - Math.PI / 2
           const r = (v / maxVal) * radius
           const x = center + r * Math.cos(angle)
           const y = center + r * Math.sin(angle)
-          return <circle key={i} cx={x} cy={y} r="2.5" fill="#8B7355" />
+          return <circle key={i} cx={x} cy={y} r="3" fill="#8B7355" stroke="#fff" strokeWidth="1.2" />
         })}
         {labels.map((l, i) => (
           <text
@@ -115,10 +117,11 @@ function RadarChart({ data, size = 120 }) {
             y={labelPos[i].y}
             textAnchor="middle"
             dominantBaseline="central"
-            fontSize={size * 0.085}
+            fontSize={size * 0.088}
+            fontWeight={600}
             fill="#6B6B6B"
           >
-            {l}{values[i]}
+            {l}
           </text>
         ))}
       </svg>
@@ -126,8 +129,18 @@ function RadarChart({ data, size = 120 }) {
   )
 }
 
-// ==================== 总分卡片 ====================
-function ScoreCard({ score, radar, fill }) {
+// ==================== 调性比喻文案 ====================
+function ToneMetaphor({ text }) {
+  if (!text) return null
+  return (
+    <div className="text-[13px] italic leading-relaxed" style={{ color: '#8B7355' }}>
+      {text}
+    </div>
+  )
+}
+
+// ==================== 总分卡片（只显示五边形评级图 + 调性比喻，不显示数字）====================
+function ScoreCard({ score, radar, fill, toneMetaphor }) {
   return (
     <motion.div 
       className={`glass-card p-4 flex flex-col ${fill ? 'h-full' : 'mb-3'}`}
@@ -135,14 +148,9 @@ function ScoreCard({ score, radar, fill }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
     >
-      <div className={`flex items-center gap-4 ${fill ? 'flex-1 justify-center' : ''}`}>
-        <div className="text-center">
-          <div className="text-3xl font-bold text-editor-text">{score}</div>
-          <div className="text-[10px] text-editor-secondary">总分 / 100</div>
-        </div>
-        <div className="flex-1">
-          <RadarChart data={radar} size={110} />
-        </div>
+      <div className={`flex flex-col items-center justify-center gap-2.5 ${fill ? 'flex-1' : ''}`}>
+        <RadarChart data={radar} size={fill ? 150 : 120} />
+        <ToneMetaphor text={toneMetaphor} />
       </div>
     </motion.div>
   )
@@ -422,7 +430,6 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
     bodyFont -= 0.5
   }
 
-  const radarSize = totalChars > 650 ? 96 : 108
   const ink = '#2C2C2C'
   const sub = '#6B6B6B'
   const accent = '#8B7355'
@@ -454,13 +461,14 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
           <div style={{ fontSize: 12, color: sub, marginTop: 4 }}>作者：{article.author || '佚名'}</div>
         </div>
 
-        {/* 评分 + 雷达 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.7)' }}>
-          <div style={{ textAlign: 'center' }}>
-            <div style={{ fontSize: 34, fontWeight: 700, color: ink, lineHeight: 1 }}>{review.score}</div>
-            <div style={{ fontSize: 10, color: sub, marginTop: 4 }}>总分 / 100</div>
-          </div>
-          <RadarChart data={review.radar} size={radarSize} />
+        {/* 评分：五星（五边形）评级图 + 调性比喻，居中排列避免右侧留白 */}
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.7)' }}>
+          <RadarChart data={review.radar} size={110} />
+          {review.toneMetaphor && (
+            <div style={{ fontSize: 13, fontStyle: 'italic', color: accent, lineHeight: 1.5 }}>
+              {review.toneMetaphor}
+            </div>
+          )}
         </div>
 
         {/* 相似作家 */}
@@ -752,28 +760,36 @@ export default function ReviewPanel() {
 
   if (!isReviewing) return null
 
-  // 移动端：全屏抽屉 + 遮罩
+  // 移动端：编辑器在上，锐评结果以底部抽屉呈现（上下分栏，不打字不看批注时也能回看编辑器）
   if (isMobile) {
     return (
       <>
-        <motion.div 
-          className="fixed inset-0 bg-black/30 z-40"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          onClick={handleClose}
-        />
         <motion.div 
           ref={sideScrollRef}
           onWheel={handleWheel}
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
-          className="fixed inset-y-0 right-0 w-full z-50 bg-editor overflow-y-auto"
-          initial={{ x: '100%' }}
-          animate={{ x: 0 }}
-          exit={{ x: '100%' }}
-          transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+          className="fixed bottom-0 left-0 right-0 z-50 bg-editor rounded-t-2xl shadow-[0_-6px_24px_rgba(0,0,0,0.12)] flex flex-col"
+          style={{ height: '62vh' }}
+          initial={{ y: '100%' }}
+          animate={{ y: 0 }}
+          exit={{ y: '100%' }}
+          transition={{ type: 'spring', damping: 26, stiffness: 210 }}
         >
+          {/* 顶部抓手 + 关闭 */}
+          <div className="flex items-center justify-between px-4 pt-2.5 pb-1 border-b border-black/5 flex-shrink-0">
+            <div className="w-10 h-1 rounded-full bg-black/15 mx-auto" style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }} />
+            <span className="text-xs text-editor-secondary pl-1">
+              {isThinking && !showResults && !error ? 'AI 审稿中' : '锐评结果'}
+            </span>
+            <button
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-black/5 flex-shrink-0"
+              onClick={handleClose}
+            >
+              <X size={15} />
+            </button>
+          </div>
+
           {/* 粉刷动画层 - 分析完成后涂刷至代表风格的颜色 */}
           <div className="absolute inset-0 overflow-hidden pointer-events-none">
             {(showResults || isClosing) && (
@@ -794,14 +810,7 @@ export default function ReviewPanel() {
               </>
             )}
           </div>
-          <div className="relative p-5 pt-14">
-            <button
-              className="absolute top-3 right-3 w-8 h-8 flex items-center justify-center rounded-full bg-black/5"
-              onClick={handleClose}
-            >
-              <X size={16} />
-            </button>
-
+          <div className="relative flex-1 min-h-0 overflow-y-auto p-4 pt-2">
             <AnimatePresence mode="wait">
               {isThinking && !showResults && !error ? (
                 <ThinkingProcess steps={thinkingSteps} activeIndex={activeStep} progress={thinkingProgress} />
@@ -817,23 +826,15 @@ export default function ReviewPanel() {
               ) : showResults && reviewData ? (
                 <>
                   <AnnotationList annotations={reviewData.annotations} onAnchorClick={handleAnchorClick} />
-                  {showBottomBar && (
-                    <motion.div
-                      initial={{ opacity: 0, y: 16 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.5 }}
-                    >
-                      <ScoreCard score={reviewData.score} radar={reviewData.radar} />
-                      <AuthorsCard authors={reviewData.authors} />
-                      <SummaryCard review={reviewData} />
-                      <button 
-                        className="w-full py-2.5 rounded-lg bg-editor-accent text-white text-sm flex items-center justify-center gap-2"
-                        onClick={handleExportPDF}
-                      >
-                        <Download size={14} /> 导出 PDF
-                      </button>
-                    </motion.div>
-                  )}
+                  <ScoreCard score={reviewData.score} radar={reviewData.radar} toneMetaphor={reviewData.toneMetaphor} />
+                  <AuthorsCard authors={reviewData.authors} />
+                  <SummaryCard review={reviewData} />
+                  <button 
+                    className="w-full py-2.5 rounded-lg bg-editor-accent text-white text-sm flex items-center justify-center gap-2"
+                    onClick={handleExportPDF}
+                  >
+                    <Download size={14} /> 导出 PDF
+                  </button>
                 </>
               ) : null}
             </AnimatePresence>
@@ -1020,7 +1021,7 @@ export default function ReviewPanel() {
           {/* 内容三栏：等高分栏，视觉整齐 */}
           <div className="flex flex-1 min-h-0">
             <div className="w-[240px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto">
-              <ScoreCard score={reviewData.score} radar={reviewData.radar} fill />
+              <ScoreCard score={reviewData.score} radar={reviewData.radar} toneMetaphor={reviewData.toneMetaphor} fill />
             </div>
             <div className="w-[280px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto">
               <AuthorsCard authors={reviewData.authors} fill />
