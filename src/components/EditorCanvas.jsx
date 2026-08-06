@@ -8,6 +8,7 @@ export default function EditorCanvas() {
     ghostActive, ghostText, acceptGhost, clearGhost,
     isThinking, resultsVisible, showBottomBar, isReviewing, bottomBarH,
     showContinuation, setShowContinuation, setShowBottomBar,
+    continuationDimmed, setContinuationDimmed,
   } = useWriterStore()
 
   const editorRef = useRef(null)
@@ -51,6 +52,12 @@ export default function EditorCanvas() {
 
   const handleInput = useCallback(() => {
     checkEmpty()
+    // 输入文字时自动收起批注与总评；续写内容以淡色形式保留在原位
+    if (isReviewing && resultsVisible) {
+      setShowBottomBar(false)
+      setShowContinuation(true)
+      setContinuationDimmed(true)
+    }
     if (!editorRef.current) return
     clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => {
@@ -59,7 +66,7 @@ export default function EditorCanvas() {
         .join('\n\n')
       updateContent(text)
     }, 500)
-  }, [updateContent, checkEmpty])
+  }, [updateContent, checkEmpty, isReviewing, resultsVisible, setShowBottomBar, setShowContinuation, setContinuationDimmed])
 
   const handleKeyDown = useCallback((e) => {
     if (!ghostActive) return
@@ -142,7 +149,8 @@ export default function EditorCanvas() {
   const revealContinuation = useCallback(() => {
     setShowContinuation(true)
     setShowBottomBar(false)
-  }, [setShowContinuation, setShowBottomBar])
+    setContinuationDimmed(false)
+  }, [setShowContinuation, setShowBottomBar, setContinuationDimmed])
 
   const handleEditorWheel = useCallback((e) => {
     const el = scrollAreaRef.current
@@ -170,13 +178,13 @@ export default function EditorCanvas() {
     contTouchY.current = e.touches[0].clientY
   }, [showContinuation, resultsVisible, revealContinuation])
 
-  // 切到续写模式后，把续写内容滚动到视野内
+  // 滚动触发（非淡色）切到续写模式后，把续写内容滚动到视野内；输入触发的淡色保留不抢光标位置
   useEffect(() => {
-    if (showContinuation && contRef.current && scrollAreaRef.current) {
+    if (showContinuation && !continuationDimmed && contRef.current && scrollAreaRef.current) {
       const el = scrollAreaRef.current
       el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
     }
-  }, [showContinuation])
+  }, [showContinuation, continuationDimmed])
 
   return (
     <div
@@ -239,9 +247,12 @@ export default function EditorCanvas() {
             <GhostTextOverlay />
           </div>
 
-          {/* 续写内容：切到续写模式后，紧跟在文段之后呈现 */}
+          {/* 续写内容：切到续写模式后，紧跟在文段之后呈现；输入文字时以淡色形式保留 */}
           {showContinuation && activeArticle?.review?.continuation && (
-            <div ref={contRef} className="mt-8 pt-6 border-t border-editor-border/50">
+            <div
+              ref={contRef}
+              className={`mt-8 pt-6 border-t border-editor-border/50 transition-opacity duration-500 ${continuationDimmed ? 'opacity-35' : ''}`}
+            >
               <div className="flex items-center gap-2 mb-4 text-xs text-editor-secondary/70 tracking-widest">
                 <span className="w-1 h-1 rounded-full bg-editor-accent/60" />
                 续写
