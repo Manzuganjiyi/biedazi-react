@@ -139,6 +139,42 @@ function computeRadar(text) {
   return { radar, score }
 }
 
+// ==================== 名著识别（服务端兜底，保证经典名篇不被误判低分 / 强批）====================
+const MASTERPIECE_FINGERPRINTS = [
+  '我与父亲不相见已二年余了', // 朱自清《背影》
+  '这几天心里颇不宁静', // 朱自清《荷塘月色》
+  '盼望着，盼望着，东风来了', // 朱自清《春》
+  '时候既然是深冬', // 鲁迅《故乡》
+  '在我的后园，可以看见墙外有两株树', // 鲁迅《秋夜》
+  '北国的秋，却特别地来得清', // 郁达夫《故都的秋》
+  '对于一个在北平住惯的人', // 老舍《济南的冬天》
+  '那是力争上游的一种树', // 茅盾《白杨礼赞》
+]
+
+function detectMasterpiece(meta) {
+  const title = String(meta?.title || '').replace(/[《》\s]/g, '')
+  const author = String(meta?.author || '').trim()
+  const content = String(meta?.content || '')
+  const writerNames = WRITERS.map((w) => w.name)
+  if (author && writerNames.includes(author)) return true
+  if (title && WRITERS.some((w) => {
+    const w1 = w.work.replace(/[《》]/g, '')
+    const w2 = w.work2.replace(/[《》]/g, '')
+    return w1 === title || w2 === title || w1.includes(title) || w2.includes(title)
+  })) return true
+  if (MASTERPIECE_FINGERPRINTS.some((f) => content.includes(f))) return true
+  return false
+}
+
+// 确定性评分：同文同分。名篇则强制高位，普通文本完全由启发式计算得出（与 AI 无关，保证稳定）
+function finalizeScores(computed, masterpiece) {
+  if (!masterpiece) return computed
+  return {
+    radar: { language: 91, structure: 89, imagery: 92, emotion: 90, innovation: 87 },
+    score: 90,
+  }
+}
+
 // ==================== 工具函数 ====================
 const clampCount = (len, cap = 12) => Math.max(1, Math.min(cap, Math.ceil(len / 400)))
 
@@ -171,8 +207,11 @@ function overlapScore(a, b) {
   return 0
 }
 
-export function buildPrompt({ content, title, author, annoCount = 5 }) {
-  return `你是一位资深文学编辑，拥有二十余年严肃文学编辑经验。请对以下作品进行审稿，并严格按照 JSON 格式返回。
+export function buildPrompt({ content, title, author, annoCount = 5, masterpiece = false }) {
+  const masterpieceLine = masterpiece
+    ? '\n- ★ 本篇经识别为公认的经典名篇：评分（scores 与 total）一律 85 分以上，总评语气应像向经典致敬而非例行评审，禁止任何强烈负面批评'
+    : ''
+  return `你是一位资深文学编辑，拥有二十余年严肃文学编辑经验。请对以下作品进行文本解读，并严格按照 JSON 格式返回。
 
 作品：《${title || '未命名'}》
 作者：${author || '佚名'}
@@ -182,14 +221,14 @@ ${content}
 以下都是真实存在的知名作家（作家名-代表作），请【只能】从中选择与本文风格最相似的作家，绝不能编造清单之外的作家或作品：
 ${WRITER_LINE}
 
-评审总原则（务必遵守）：
-- 你以资深文学编辑的专业视角评价，但始终记住：你评价的是文字，面对的却是写作者本人。请以真诚、尊重、接纳的态度呈现意见，先看见这篇文字的努力与优点，再谈可以更好的地方；批评务必具体、有建设性，让作者感到被理解而不是被审判
-- 客观、内行、具体，不敷衍、不吹捧、不空泛；好就具体说好在哪，坏就具体说坏在哪、怎么改
+解读总原则（务必遵守）：
+- 你以资深文学编辑的专业视角解读，但始终记住：你评价的是文字，面对的却是写作者本人。请以真诚、尊重、接纳的态度呈现意见，先看见这篇文字的努力与优点，再谈可以更好的地方
+- 侧重深入赏析与共情，而不是找错。不要刻意寻找错别字、用词之类的外在毛病（这类机械挑错常常并不准确，反而会伤到作者）；只有确实妨碍理解、明显失衡的地方，才轻轻、委婉地提一句
+- 客观、内行、具体，不敷衍、不吹捧、不空泛；好就具体说好在哪
 - 优先维护作品的文学性，而不是可读性
 - 不要为了顺畅而消除作者刻意制造的晦涩、断裂、意识跳跃；不要把奇异的意象改写得通俗好懂
-- 只修正真正的硬伤：错别字、的/得/地误用、语法崩坏、逻辑彻底断裂
 - 叙事层面刻意的断裂、歧义、含混属于作者的写作选择，不视作错误，也绝不要求改顺
-- 名著豁免：若输入文本明显是已知的经典名篇或名家作品（如《背影》《荷塘月色》《故乡》等名作片段），请先识别其身份，评价必须符合其既定的文学地位——客观、尊重，肯定其经典价值，严禁对名著给出低分或强烈的负面批评
+- 名著豁免：若输入文本明显是已知的经典名篇或名家作品（如《背影》《荷塘月色》《故乡》等名作片段），请先识别其身份，评价必须符合其既定的文学地位——客观、尊重，肯定其经典价值，严禁对名著给出低分或强烈的负面批评${masterpieceLine}
 
 评分标准（务必遵守）：
 - 60 分 = 省市级文学刊物可发表的水平；70 分 = 国内重要文学期刊水平；80 分 = 顶尖（《收获》《人民文学》级别）；90 分以上 = 一流作家的名篇；100 分 = 诺贝尔文学奖级别
@@ -200,9 +239,9 @@ ${WRITER_LINE}
 请严格按以下 JSON 结构返回（只返回合法 JSON，不要 markdown 代码块，不要任何其他文字）：
 {
   "textOverview": "总评第一段的自然段落（约60字，不要用序号不要分点不要任何小标题，也不要写'概览''文本分析'这类字眼）：像 MBTI 人格解读那样，用理解与共情的口吻，先感受这段文字流露出的气质与心绪（叙事视角：正文用'他/她'即第三人称，用'我'即第一人称，别弄错），说出'这段文字像是怎样一个人写下的'。语气真诚、关怀，像在读懂作者这个人",
-  "hardIssues": "总评第二段的自然段落（约40字，不要序号不要分点不要小标题）：用温和而非审判的口吻，把真正客观的硬伤（错别字、的得地、语法崩坏、逻辑彻底断裂）轻轻指出来；没有就写'读来顺畅，没有明显硬伤'。绝不把审美偏好放这里",
-  "literaryAnalysis": "总评第三段的自然段落（约150字以内，务必精炼、言之有物，不要序号不要分点不要小标题）：像一位懂你的编辑那样，先肯定这段文字真正立起来、打动人的地方，再具体说到哪里还可以更好、怎么改；把'作者主动的写作选择'与'真正的缺憾'区分开。语气是理解与陪伴，而不是打分与评判",
-  "conclusion": "总评第四段的自然段落（约40字，不要序号不要分点不要小标题）：用温暖肯定的口吻收尾，给作者一句鼓励和下一步可以做的事。像朋友目送你继续往前走",
+  "literaryAnalysis": "总评第二段的自然段落（约150字以内，务必精炼、言之有物，不要序号不要分点不要小标题）：像一位懂你的编辑那样，先肯定这段文字真正立起来、打动人的地方（具体到某个意象、某处节奏），再做更深入的赏析；若确有做得不够好的地方，用委婉、商量的语气轻轻带过（例如'或许可以更含蓄一点''这里可能稍微直接了些'），把'作者主动的写作选择'与'真正的缺憾'区分开，绝不刻意挑刺",
+  "comparison": "总评第三段的自然段落（约120字，不要序号不要分点不要小标题）：挑出文中一两个具体的意象（如'暮色''雨声''旧书页'），先写作者是如何呈现它们的，再写清单里最相似的那位作家在处理同类意象时的真实笔法（务必符合该作家作品的真实风格，不可编造，例如汪曾祺写吃食讲究味道的余韵、沈从文写湘西景物爱用光与水的层次），通过这样的对照，点明本文与这位作家的接近之处与真实距离，让作者更清楚地看见自己的水平",
+  "conclusion": "总评第四段的自然段落（约30字，不要序号不要分点不要小标题）：用温暖肯定的口吻收尾，给作者一句真诚的鼓励。绝对不要写祝福语、祝愿语或升华金句（祝福语已有单独的区域呈现）",
   "toneMetaphor": "一个'（形容词）的（名词）'格式的短语，例如'雾霭的河岸''黄昏的钟声'，用直觉式比喻概括这段文字的整体调性，只给短语本身，不要解释，也不要加任何括号",
   "styleColor": "代表本段文字风格的专属颜色，必须是合法的六位十六进制色号（如 #B8A9C9）。要求柔和、低饱和、偏淡雅的文学性色调（类似宣纸、暮色、雾霭），不要刺眼的高饱和色",
   "continuation": "约80字的续写，风格与原文一致",
@@ -220,7 +259,7 @@ ${WRITER_LINE}
 }
 
 严格要求：
-1. textOverview / hardIssues / literaryAnalysis / conclusion 四段缺一不可，全部写成自然的完整段落，按顺序连起来就是一段连贯的、面向作者的 MBTI 式共情解读，禁止使用 1. 2. 3. 等序号、分点符号或任何小标题（如'文本概览：''硬伤：'等），段落内容本身也不要出现'概览''评析'之类的栏目词
+1. textOverview / literaryAnalysis / comparison / conclusion 四段缺一不可，全部写成自然的完整段落，按顺序连起来就是一段连贯的、面向作者的 MBTI 式共情解读，禁止使用 1. 2. 3. 等序号、分点符号或任何小标题（如'文本概览：''硬伤：'等），段落内容本身也不要出现'概览''评析''硬伤'之类的栏目词
 2. styleColor 必须是合法的六位十六进制色号；toneMetaphor 必须是'（形容词）的（名词）'格式
 3. annotations 数组必须【正好 ${annoCount} 项】，绝对不能多——每项对应原文中约一个 400 字片段里最高光的那一句，每项约 50-70 字，多写会挤占输出预算导致前面字段截断，输出预算有限，请务必只写 ${annoCount} 项
 4. 每条 annotations 的 quote 必须从正文中【逐字完整摘录】一个【完整的句子】：从句子第一个字开始，到句号/问号/感叹号/省略号等句末标点为止（含句末标点）。绝不能改写、删减、截取半句、拼接或凭空编造；若原文里实在找不到完整的第 ${annoCount} 句，就挑一句真正存在的最短的完整句子，宁可句子短，不可编造
@@ -460,8 +499,20 @@ function normalizeAuthors(parsed) {
   return result
 }
 
-export function normalizeReview(parsed, content) {
+export function normalizeReview(parsed, content, opts = {}) {
   const annoCap = clampCount(content.trim().length)
+
+  // 总评结尾段禁止出现祝福语（祝福语由 emotionalClosing 单独呈现）：去掉开头的祝福句
+  const scrubBlessing = (t) => {
+    const s = String(t || '').trim()
+    if (!s) return s
+    if (/^[愿祝]|^希望/.test(s)) {
+      const end = s.search(/[，。！？；、]/)
+      if (end > -1) return s.slice(end + 1).trim()
+      return ''
+    }
+    return s
+  }
 
   // 批注：quote 必须是原文中真实存在的完整句子。模型可能改写/编造引文，
   // 因此用"最长公共子串"把每条批注匹配到最近的真实句子；匹配不上就按文本顺序就近分配。
@@ -531,41 +582,9 @@ export function normalizeReview(parsed, content) {
   const authors = normalizeAuthors(parsed)
   const computed = computeRadar(content)
 
-  // 评分：优先采纳 AI 编辑给出的分数（按 60/80/100 校准），缺失或非法则退回启发式计算
-  const toNum = (v) => {
-    const n = Number(v)
-    if (!Number.isFinite(n)) return null
-    return Math.max(0, Math.min(100, Math.round(n)))
-  }
-  const s = parsed?.scores && typeof parsed.scores === 'object' ? parsed.scores : {}
-  const rNum = {
-    language: toNum(s.language),
-    structure: toNum(s.structure),
-    imagery: toNum(s.imagery),
-    emotion: toNum(s.emotion),
-    innovation: toNum(s.innovation),
-    total: toNum(s.total),
-  }
-  const hasAny = Object.values(rNum).some((v) => v !== null)
-  let radar, score
-  if (hasAny) {
-    const five = [rNum.language, rNum.structure, rNum.imagery, rNum.emotion, rNum.innovation]
-    radar = {
-      language: rNum.language ?? computed.radar.language,
-      structure: rNum.structure ?? computed.radar.structure,
-      imagery: rNum.imagery ?? computed.radar.imagery,
-      emotion: rNum.emotion ?? computed.radar.emotion,
-      innovation: rNum.innovation ?? computed.radar.innovation,
-    }
-    const fiveVals = five.filter((v) => v !== null)
-    const avg = Math.round(fiveVals.reduce((a, b) => a + b, 0) / Math.max(1, fiveVals.length))
-    // 总分与分项均分保持口径一致（允许 ±10 的编辑浮动），避免分项低而总分虚高
-    const base = rNum.total !== null ? rNum.total : avg
-    score = Math.max(avg - 10, Math.min(avg + 10, base))
-  } else {
-    radar = computed.radar
-    score = computed.score
-  }
+  // 评分：同文同分（确定性）。完全由文本启发式计算得出，不随 AI 输出波动；
+  // 识别为经典名篇时强制高位，保证名著不会得到与其地位不符的低分
+  const { radar, score } = finalizeScores(computed, !!opts.masterpiece)
 
   const styleColor = typeof parsed?.styleColor === 'string'
     && /^#[0-9a-fA-F]{6}$/.test(parsed.styleColor)
@@ -578,9 +597,9 @@ export function normalizeReview(parsed, content) {
     annotations,
     continuation: parsed?.continuation || '',
     textOverview: parsed?.textOverview || '',
-    hardIssues: parsed?.hardIssues || '',
     literaryAnalysis: parsed?.literaryAnalysis || '',
-    conclusion: parsed?.conclusion || '',
+    comparison: parsed?.comparison || parsed?.hardIssues || '',
+    conclusion: scrubBlessing(parsed?.conclusion),
     emotionalClosing: parsed?.emotionalClosing || '',
     toneMetaphor: String(parsed?.toneMetaphor || '').replace(/[（）()]/g, '').trim(),
     tone: TONES.includes(parsed?.tone) ? parsed.tone : 'melancholy',
@@ -630,11 +649,11 @@ async function callXfyun(prompt, temperature) {
   return rawContent
 }
 
-// 模型输出完全无法解析时的兜底：基于文本启发式生成一份可用审稿，保证用户总能看到结果
-function buildHeuristicReview(content, title, author) {
+// 模型输出完全无法解析时的兜底：基于文本启发式生成一份可用解读，保证用户总能看到结果
+function buildHeuristicReview(content, title, author, masterpiece = false) {
   const computed = computeRadar(content)
+  const { radar, score } = finalizeScores(computed, masterpiece)
   const sentences = extractSentences(content)
-  const score = computed.score
   const annoCount = clampCount(content.trim().length)
   const step = sentences.length ? Math.max(1, Math.floor(sentences.length / Math.max(1, annoCount))) : 1
   let cursor = 0
@@ -657,15 +676,15 @@ function buildHeuristicReview(content, title, author) {
     annotations,
     continuation: '',
     textOverview: '这段文字以细腻的笔触展开，叙事视角稳定，整体气质沉静而有温度。',
-    hardIssues: '【无硬伤】',
     literaryAnalysis: '文字的语感与意象经营都很用心，个别处可再收敛一些直白抒情，让余味更绵长。',
+    comparison: '若放在沈从文、汪曾祺一脉来读，你的句子在节奏上是接近的，只是意象还略欠一层打磨，再写得含蓄些会更耐读。',
     conclusion: '整体可用，建议在情绪表达上再克制一分。',
     emotionalClosing: '愿你的笔，落处皆是温柔。',
     toneMetaphor: '暮色的河岸',
     tone,
     styleColor: null,
     score,
-    radar: computed.radar,
+    radar,
   }
 }
 
@@ -695,7 +714,8 @@ export default async function handler(req) {
     }
 
     const annoCount = clampCount(content.trim().length)
-    const prompt = buildPrompt({ content, title, author, annoCount })
+    const masterpiece = detectMasterpiece({ title, author, content })
+    const prompt = buildPrompt({ content, title, author, annoCount, masterpiece })
 
     // 低温度优先（保证评分稳定），最多尝试 3 次不同的温度与温度抖动
     const attempts = [0.35, 0.2, 0.5]
@@ -714,15 +734,15 @@ export default async function handler(req) {
     }
 
     if (!parsed) {
-      // 完全无法解析：退化为基于文本的启发式审稿，保证用户总能拿到结果
+      // 完全无法解析：退化为基于文本的启发式解读，保证用户总能拿到结果
       console.error('All parsing attempts failed, using heuristic fallback')
-      return new Response(JSON.stringify(buildHeuristicReview(content, title, author)), {
+      return new Response(JSON.stringify(buildHeuristicReview(content, title, author, masterpiece)), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
     }
 
-    const result = normalizeReview(parsed, content)
+    const result = normalizeReview(parsed, content, { masterpiece })
 
     return new Response(JSON.stringify(result), {
       status: 200,

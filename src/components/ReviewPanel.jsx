@@ -135,7 +135,7 @@ function ToneMetaphor({ text }) {
   return (
     <div
       className="font-serif-cn italic tracking-wide text-center"
-      style={{ color: '#8B7355', fontSize: 16, letterSpacing: '0.08em' }}
+      style={{ color: '#8B7355', fontSize: 19, letterSpacing: '0.08em' }}
     >
       {text}
     </div>
@@ -205,7 +205,7 @@ function ThinkingProcess({ steps, activeIndex, progress }) {
 
       <div className="text-xs font-medium text-editor-secondary mb-2 flex items-center gap-1.5">
         <Sparkles size={12} className="text-editor-accent" />
-        AI 审稿进行中
+        AI 解读进行中
       </div>
 
       <div className="space-y-1">
@@ -247,13 +247,16 @@ function ThinkingProcess({ steps, activeIndex, progress }) {
   )
 }
 
-// ==================== 相似度液体圆球（瓶中水占比）====================
+// ==================== 相似度液体圆球（瓶中水占比，60% 即满）====================
 function LiquidBall({ percent, size = 42 }) {
   const p = Math.max(2, Math.min(100, Number(percent) || 0))
+  // 显示仍为真实百分比；液面按 60% 即灌满的比例填充，让比例关系更有辨识度
+  const fillPct = Math.min(100, (p / 60) * 100)
   const cx = size / 2
   const r = size / 2 - 1.5
-  const liquidH = r * 2 * (p / 100)
+  const liquidH = r * 2 * (fillPct / 100)
   const yTop = size / 2 + r - liquidH
+  const liquidColor = '#6B7367'
   return (
     <div className="flex flex-col items-center gap-0.5 flex-shrink-0" style={{ width: size + 6 }}>
       <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
@@ -264,19 +267,19 @@ function LiquidBall({ percent, size = 42 }) {
         </defs>
         {/* 瓶体淡色 */}
         <circle cx={cx} cy={cx} r={r} fill="rgba(255,255,255,0.55)" stroke="rgba(0,0,0,0.25)" strokeWidth="1.5" />
-        {/* 液体（深色，按比例从下往上） */}
+        {/* 液体（低饱和的深灰绿，按比例从下往上） */}
         <g clipPath={`url(#lb-clip-${p}-${size})`}>
-          <rect x={0} y={yTop} width={size} height={liquidH + 1} fill="#4A6A4A" opacity="0.85" />
+          <rect x={0} y={yTop} width={size} height={liquidH + 1} fill={liquidColor} opacity="0.8" />
           {/* 液面亮光 */}
-          <ellipse cx={cx} cy={yTop + 1.5} rx={r - 1} ry={2.5} fill="rgba(255,255,255,0.35)" />
+          <ellipse cx={cx} cy={yTop + 1.5} rx={r - 1} ry={2.5} fill="rgba(255,255,255,0.32)" />
           {/* 液面波纹 */}
           <path
             d={`M ${cx - r} ${yTop + 4} Q ${cx - r / 2} ${yTop - 1} ${cx} ${yTop + 3} T ${cx + r} ${yTop + 3}`}
-            fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="1.2"
+            fill="none" stroke="rgba(255,255,255,0.45)" strokeWidth="1.2"
           />
           {/* 液体气泡 */}
-          <circle cx={cx - r / 2.4} cy={yTop + liquidH * 0.55} r={1.6} fill="rgba(255,255,255,0.5)" />
-          <circle cx={cx + r / 3} cy={yTop + liquidH * 0.3} r={1.1} fill="rgba(255,255,255,0.4)" />
+          <circle cx={cx - r / 2.4} cy={yTop + liquidH * 0.55} r={1.6} fill="rgba(255,255,255,0.45)" />
+          <circle cx={cx + r / 3} cy={yTop + liquidH * 0.3} r={1.1} fill="rgba(255,255,255,0.35)" />
         </g>
         {/* 玻璃高光 */}
         <ellipse cx={cx - r * 0.38} cy={cx - r * 0.4} rx={r * 0.22} ry={r * 0.45} fill="rgba(255,255,255,0.5)" transform={`rotate(-24 ${cx - r * 0.38} ${cx - r * 0.4})`} />
@@ -360,9 +363,9 @@ function AnnotationList({ annotations, onAnchorClick, reading }) {
   )
 }
 
-// ==================== 审稿意见卡片（自然段落，无小标题）====================
+// ==================== 文本解读卡片（自然段落，无小标题）====================
 function SummaryCard({ review, fill }) {
-  const hasStructured = review?.textOverview || review?.hardIssues || review?.literaryAnalysis || review?.conclusion
+  const hasStructured = review?.textOverview || review?.literaryAnalysis || review?.comparison || review?.conclusion
   const [revealClosing, setRevealClosing] = useState(false)
   const contentRef = useRef(null)
 
@@ -401,8 +404,8 @@ function SummaryCard({ review, fill }) {
   // 把四段内容连成自然段落，段与段之间用空行过渡，不显示任何小标题
   const flowSegments = [
     review?.textOverview,
-    review?.hardIssues,
     review?.literaryAnalysis,
+    review?.comparison,
     review?.conclusion,
   ].filter((s) => String(s || '').trim())
 
@@ -448,8 +451,8 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
   // 总评以自然段落呈现，无小标题
   const flowSegments = [
     review.textOverview,
-    review.hardIssues,
     review.literaryAnalysis,
+    review.comparison,
     review.conclusion,
   ].filter((s) => String(s || '').trim())
   const totalChars = flowSegments.join('').length
@@ -486,7 +489,7 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
         {/* 顶部品牌 */}
         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
           <span style={{ width: 14, height: 14, borderRadius: 3, background: accent, display: 'inline-block' }} />
-          <span style={{ fontSize: 12, letterSpacing: 2, color: sub }}>笔搭子 · AI 审稿</span>
+          <span style={{ fontSize: 12, letterSpacing: 2, color: sub }}>笔搭子 · 文本解读</span>
         </div>
 
         {/* 标题与作者 */}
@@ -549,7 +552,8 @@ export default function ReviewPanel() {
   const { 
     isReviewing, isThinking, thinkingSteps, activeArticleId, articles,
     toneColor, closeReview, setGhostText, saveReview, setStyleColor, setThinking,
-    showBottomBar, setShowBottomBar, setResultsVisible, closeRequestId
+    showBottomBar, setShowBottomBar, setResultsVisible, closeRequestId,
+    bottomBarH, setBottomBarH,
   } = useWriterStore()
 
   const [activeStep, setActiveStep] = useState(0)
@@ -584,6 +588,7 @@ export default function ReviewPanel() {
     setError(null)
     setResultsVisible(false)
     setShowBottomBar(false)
+    setBottomBarH(isMobile ? 62 : 50)
 
     // 视觉推进与真实 API 调用并行：按 20s 名义时长均衡分配 5 个阶段
     const TOTAL_MS = 20000
@@ -757,7 +762,7 @@ export default function ReviewPanel() {
         format: [canvas.width / 2, canvas.height / 2],
       })
       doc.addImage(img, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2)
-      doc.save(`${activeArticle.title || '笔搭子'}_审稿报告.pdf`)
+      doc.save(`${activeArticle.title || '笔搭子'}_文本解读.pdf`)
     } catch (e) {
       console.error('导出 PDF 失败:', e)
       alert(`导出 PDF 失败：${(e && e.message) || e}`)
@@ -796,6 +801,26 @@ export default function ReviewPanel() {
     touchStartY.current = e.touches[0].clientY
   }
 
+  // 下边栏高度拖动：按住顶部抓手上下拖动，自由调整高度
+  const handleDragStart = (e) => {
+    e.preventDefault()
+    const el = e.currentTarget
+    try { el.setPointerCapture(e.pointerId) } catch { /* ignore */ }
+    const move = (ev) => {
+      const vh = ((window.innerHeight - ev.clientY) / window.innerHeight) * 100
+      setBottomBarH(Math.round(vh))
+    }
+    const up = () => {
+      try { el.releasePointerCapture(e.pointerId) } catch { /* ignore */ }
+      el.removeEventListener('pointermove', move)
+      el.removeEventListener('pointerup', up)
+      el.removeEventListener('pointercancel', up)
+    }
+    el.addEventListener('pointermove', move)
+    el.addEventListener('pointerup', up)
+    el.addEventListener('pointercancel', up)
+  }
+
   // 悬浮球在评价完成后请求关闭 → 回到编辑器视角
   useEffect(() => {
     if (closeRequestId > 0 && isReviewing) {
@@ -816,17 +841,21 @@ export default function ReviewPanel() {
           onTouchStart={handleTouchStart}
           onTouchMove={handleTouchMove}
           className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl shadow-[0_-6px_24px_rgba(0,0,0,0.12)] flex flex-col"
-          style={{ height: '62vh', background: `linear-gradient(0deg, ${hexToRgba(toneColor, 0.38)}, #FAF9F6 60%)`, borderTop: `1px solid ${hexToRgba(toneColor, 0.5)}` }}
+          style={{ height: `${bottomBarH}vh`, background: `linear-gradient(0deg, ${hexToRgba(toneColor, 0.38)}, #FAF9F6 60%)`, borderTop: `1px solid ${hexToRgba(toneColor, 0.5)}` }}
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={{ type: 'spring', damping: 26, stiffness: 210 }}
         >
-          {/* 顶部抓手 + 关闭 */}
-          <div className="flex items-center justify-between px-4 pt-2.5 pb-1 border-b border-black/5 flex-shrink-0">
-            <div className="w-10 h-1 rounded-full bg-black/15 mx-auto" style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)' }} />
+          {/* 顶部抓手（可上下拖动调节抽屉高度）+ 关闭 */}
+          <div
+            className="flex items-center justify-between px-4 pt-1.5 pb-1 border-b border-black/5 flex-shrink-0 relative"
+            style={{ touchAction: 'none' }}
+            onPointerDown={handleDragStart}
+          >
+            <div className="w-10 h-1 rounded-full bg-black/15 mx-auto" style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: 8 }} />
             <span className="text-xs text-editor-secondary pl-1">
-              {isThinking && !showResults && !error ? 'AI 审稿中' : '锐评结果'}
+              {isThinking && !showResults && !error ? 'AI 解读中' : '锐评结果'}
             </span>
             <button
               className="w-8 h-8 flex items-center justify-center rounded-full bg-black/5 flex-shrink-0"
@@ -929,14 +958,26 @@ export default function ReviewPanel() {
     )
   }
 
-  // 桌面端：右侧批注栏 + 下边栏
+  // 桌面端：右侧批注栏（浮动卡片）+ 可拖动的下边栏
   return (
     <>
-      {/* 右侧批注栏（未读完时占满全高，下边栏升起时上移） */}
-      <div className={`fixed right-0 top-0 w-[35%] z-40 flex transition-all duration-500
-        ${showResults && showBottomBar ? 'bottom-[50vh]' : 'bottom-0'}
-        ${isReviewing && !isClosing ? 'translate-x-0' : 'translate-x-full'}
-      `}>
+      {/* 右侧批注栏：浮动玻璃卡片。未升起下边栏时占满右列高度，不遮住编辑器全文；下边栏升起时上移腾位，编辑器同时向左上压缩 */}
+      <div
+        className={`fixed right-4 z-40 flex flex-col rounded-2xl overflow-hidden transition-all duration-500
+          ${isReviewing && !isClosing ? 'translate-x-0' : 'translate-x-full'}
+        `}
+        style={{
+          top: 16,
+          width: 400,
+          maxWidth: '38vw',
+          bottom: showResults && showBottomBar ? `calc(${bottomBarH}vh + 12px)` : 16,
+          background: 'rgba(255,255,255,0.72)',
+          border: '1px solid rgba(255,255,255,0.55)',
+          backdropFilter: 'blur(20px)',
+          WebkitBackdropFilter: 'blur(20px)',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+        }}
+      >
         {/* 粉刷动画层 - 仅在分析完成、呈现结果时从原色涂刷至代表风格的颜色 */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           {(showResults || isClosing) && (
@@ -1055,13 +1096,15 @@ export default function ReviewPanel() {
         </div>
       </div>
 
-      {/* 下边栏：直接呈现有效信息（分数 / 相似作家 / 审稿意见），无标题栏；色调与文风呼应，与右侧批注栏的横向粉刷形成错落 */}
+      {/* 下边栏：直接呈现有效信息（评级 / 相似作家 / 文本解读），无标题栏；高度可按住顶部抓手上下拖动；色调与文风呼应 */}
       {showResults && !error && reviewData && showBottomBar && (
         <motion.div
-          className="fixed bottom-0 left-0 right-0 z-30 h-[50vh] flex flex-col shadow-[0_-6px_24px_rgba(0,0,0,0.1)]"
+          className="fixed bottom-0 left-0 right-0 z-30 flex flex-col shadow-[0_-6px_24px_rgba(0,0,0,0.1)]"
           style={{
+            height: `${bottomBarH}vh`,
             background: `linear-gradient(0deg, ${hexToRgba(toneColor, 0.42)}, rgba(250,249,246,0.98) 62%)`,
             borderTop: `1px solid ${hexToRgba(toneColor, 0.55)}`,
+            overflow: 'hidden',
           }}
           initial={{ opacity: 0, y: 64 }}
           animate={{ opacity: 1, y: 0 }}
@@ -1069,8 +1112,16 @@ export default function ReviewPanel() {
         >
           {/* 与右侧批注栏协调的色调描边：从右往左由深到浅，错落呼应 */}
           <div className="absolute inset-x-0 top-0 h-1 pointer-events-none" style={{ background: `linear-gradient(to left, ${hexToRgba(toneColor, 0.85)}, transparent 70%)` }} />
+          {/* 拖动抓手：按住上下拖动自由调整高度 */}
+          <div
+            className="absolute inset-x-0 top-0 h-6 z-10 flex items-start justify-center cursor-ns-resize"
+            style={{ touchAction: 'none' }}
+            onPointerDown={handleDragStart}
+          >
+            <div className="mt-1.5 w-12 h-1 rounded-full bg-black/20" />
+          </div>
           {/* 内容三栏：等高分栏，视觉整齐 */}
-          <div className="flex flex-1 min-h-0">
+          <div className="flex flex-1 min-h-0 pt-1">
             <div className="w-[240px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto">
               <ScoreCard score={reviewData.score} radar={reviewData.radar} toneMetaphor={reviewData.toneMetaphor} fill />
             </div>

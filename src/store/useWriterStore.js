@@ -33,6 +33,7 @@ export const useWriterStore = create(
       thinkingSteps: [],
       resultsVisible: false,
       showBottomBar: false,
+      bottomBarH: 50,
       closeRequestId: 0,
       ghostText: '',
       ghostActive: false,
@@ -96,6 +97,7 @@ export const useWriterStore = create(
       setThinking: (isThinking, thinkingSteps = []) => set({ isThinking, thinkingSteps }),
       setResultsVisible: (visible) => set({ resultsVisible: visible }),
       setShowBottomBar: (visible) => set({ showBottomBar: visible }),
+      setBottomBarH: (vh) => set({ bottomBarH: Math.max(24, Math.min(86, Number(vh) || 50)) }),
       requestPanelClose: () => set((s) => ({ closeRequestId: s.closeRequestId + 1 })),
       setToneColor: (tone) => set({ toneColor: TONE_COLORS[tone] || TONE_COLORS.default }),
       setStyleColor: (color) => set({

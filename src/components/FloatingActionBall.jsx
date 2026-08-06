@@ -4,7 +4,7 @@ import { Feather, Loader2, Check, X } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 export default function FloatingActionBall() {
-  const { isReviewing, isThinking, triggerReview, requestPanelClose, showBottomBar } = useWriterStore()
+  const { isReviewing, isThinking, triggerReview, requestPanelClose, showBottomBar, bottomBarH } = useWriterStore()
   const [isHovered, setIsHovered] = useState(false)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
 
@@ -41,7 +41,7 @@ export default function FloatingActionBall() {
       className={`fixed z-50 w-16 h-16 rounded-full bg-editor-accent text-white 
                  flex items-center justify-center shadow-lg cursor-pointer
                  disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-500`}
-      style={{ right: 32, bottom: showBottomBar ? 'calc(50vh + 28px)' : 32 }}
+      style={{ right: 32, bottom: showBottomBar ? `calc(${bottomBarH}vh + 28px)` : 32 }}
       whileHover={{ scale: 1.1 }}
       whileTap={{ scale: 0.95 }}
       onHoverStart={() => setIsHovered(true)}
