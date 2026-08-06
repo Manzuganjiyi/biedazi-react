@@ -238,13 +238,13 @@ ${WRITER_LINE}
 
 请严格按以下 JSON 结构返回（只返回合法 JSON，不要 markdown 代码块，不要任何其他文字）：
 {
-  "textOverview": "总评第一段的自然段落（约60字，不要用序号不要分点不要任何小标题，也不要写'概览''文本分析'这类字眼）：像 MBTI 人格解读那样，用理解与共情的口吻，先感受这段文字流露出的气质与心绪（叙事视角：正文用'他/她'即第三人称，用'我'即第一人称，别弄错），说出'这段文字像是怎样一个人写下的'。语气真诚、关怀，像在读懂作者这个人",
-  "literaryAnalysis": "总评第二段的自然段落（约150字以内，务必精炼、言之有物，不要序号不要分点不要小标题）：像一位懂你的编辑那样，先肯定这段文字真正立起来、打动人的地方（具体到某个意象、某处节奏），再做更深入的赏析；若确有做得不够好的地方，用委婉、商量的语气轻轻带过（例如'或许可以更含蓄一点''这里可能稍微直接了些'），把'作者主动的写作选择'与'真正的缺憾'区分开，绝不刻意挑刺",
-  "comparison": "总评第三段的自然段落（约120字，不要序号不要分点不要小标题）：挑出文中一两个具体的意象（如'暮色''雨声''旧书页'），先写作者是如何呈现它们的，再写清单里最相似的那位作家在处理同类意象时的真实笔法（务必符合该作家作品的真实风格，不可编造，例如汪曾祺写吃食讲究味道的余韵、沈从文写湘西景物爱用光与水的层次），通过这样的对照，点明本文与这位作家的接近之处与真实距离，让作者更清楚地看见自己的水平",
-  "conclusion": "总评第四段的自然段落（约30字，不要序号不要分点不要小标题）：用温暖肯定的口吻收尾，给作者一句真诚的鼓励。绝对不要写祝福语、祝愿语或升华金句（祝福语已有单独的区域呈现）",
+  "textOverview": "总评第一段的自然段落（约70-90字，不要用序号不要分点不要任何小标题，也不要写'概览''文本分析'这类字眼）：像 MBTI 人格解读那样，用理解与共情的口吻，先感受这段文字流露出的气质与心绪（叙事视角：正文用'他/她'即第三人称，用'我'即第一人称，别弄错），说出'这段文字像是怎样一个人写下的'——可以落到开头的第一个镜头、最触动的那个细节上，让作者一读就知道你真的读进去了。语气真诚、关怀，像在读懂作者这个人",
+  "literaryAnalysis": "总评第二段的自然段落（约220-280字，务必言之有物、有真正的文学深度，不要序号不要分点不要小标题）：像一位懂你的编辑那样，做深入赏析——（a）具体引证：挑出原文一两处真正立起来的句子/意象/细节，说明它好在哪（节奏怎么起落、意象如何经营、留白与克制怎样生效、视角与句法传达了何种情绪）；（b）指出结构上的脉络与起伏；（c）若确有做得不够好的地方，用委婉、商量的语气轻轻带过（例如'或许可以更含蓄一点''这里可能稍微直接了些'），把'作者主动的写作选择'与'真正的缺憾'区分开，绝不刻意挑刺",
+  "comparison": "总评第三段的自然段落（约180-240字，不要序号不要分点不要小标题）：挑出文中一两个具体的意象（如'暮色''雨声''旧书页'）或一种笔法，先写作者是如何呈现它们的，再写清单里最相似的那位作家在处理同类意象时的真实笔法（务必符合该作家作品的真实风格，不可编造，例如汪曾祺写吃食讲究味道的余韵、沈从文写湘西景物爱用光与水的层次、张爱玲善用色彩与器物写苍凉），具体到该作家某一部作品的某个片段；通过这样的对照，点明本文与这位作家的接近之处与真实距离，让作者更清楚地看见自己的水平处在哪个位置、下一步往哪个方向走",
+  "conclusion": "总评第四段的自然段落（约40字，不要序号不要分点不要小标题）：用温暖肯定的口吻收尾，给作者一句真诚的鼓励。绝对不要写祝福语、祝愿语或升华金句（祝福语已有单独的区域呈现）",
   "toneMetaphor": "一个'（形容词）的（名词）'格式的短语，例如'雾霭的河岸''黄昏的钟声'，用直觉式比喻概括这段文字的整体调性，只给短语本身，不要解释，也不要加任何括号",
   "styleColor": "代表本段文字风格的专属颜色，必须是合法的六位十六进制色号（如 #B8A9C9）。要求柔和、低饱和、偏淡雅的文学性色调（类似宣纸、暮色、雾霭），不要刺眼的高饱和色",
-  "continuation": "约80字的续写，风格与原文一致",
+  "continuation": "约300-500字的续写（至少300字，尽量写到350字以上），风格、语气、节奏与原文完全一致，延续原文的人物、场景与情绪脉络，像同一支笔接着写下去；内容要扎实有推进、有新的细节与起伏，不要空泛抒情或机械复读，不要在这里写总结或收尾",
   "emotionalClosing": "一句克制的、有文学余味的祝福或升华语（20-40字），避免鸡汤与空泛，最好用意象或隐喻收束，能提升整篇格调",
   "tone": "melancholy|passionate|serene|mysterious|humorous 之一，按文本整体情感基调判断",
   "scores": { "language": 0-100整数, "structure": 0-100整数, "imagery": 0-100整数, "emotion": 0-100整数, "innovation": 0-100整数, "total": 0-100整数 },
@@ -688,6 +688,34 @@ function buildHeuristicReview(content, title, author, masterpiece = false) {
   }
 }
 
+// 主解读完成后，若续写不够长，用一次专门调用生成 300-500 字的完整续写
+async function generateContinuation(content, title, author) {
+  const prompt = `请为下面的文章续写一段文字。要求：
+- 至少 300 字，尽量写到 350-500 字
+- 风格、语气、节奏与原文完全一致，延续原文的人物、场景与情绪脉络，像同一支笔接着写下去
+- 内容要扎实有推进，有新的细节与起伏，不要空泛抒情、不要机械复读、不要写总结或收尾
+- 只输出续写正文本身，不要任何解释、标题或引号
+
+文章标题：《${title || '未命名'}》
+作者：${author || '佚名'}
+正文：
+${content}
+
+续写：`
+  try {
+    const raw = await callXfyun(prompt, 0.6)
+    const clean = String(raw || '')
+      .replace(/```/g, '')
+      .replace(/^[\s"'“”「『]+|[\s"'“”」』]+$/g, '')
+      .trim()
+    if (clean.length >= 250) return clean
+    console.error('continuation too short:', clean.length)
+  } catch (e) {
+    console.error('continuation generation failed:', e.message)
+  }
+  return null
+}
+
 export default async function handler(req) {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
@@ -744,7 +772,14 @@ export default async function handler(req) {
 
     const result = normalizeReview(parsed, content, { masterpiece })
 
-    return new Response(JSON.stringify(result), {
+    // 续写未达到 300-500 字时，用一次专门调用补齐，保证续写够长、够有推进
+    let finalResult = result
+    if (!result.continuation || String(result.continuation).length < 250) {
+      const longCont = await generateContinuation(content, title, author)
+      if (longCont) finalResult = { ...result, continuation: longCont }
+    }
+
+    return new Response(JSON.stringify(finalResult), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     })

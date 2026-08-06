@@ -66,8 +66,28 @@
 }
 
 @media (min-width: 768px) {
+  /* 收缩后的编辑器：始终显示独立滚动条，可单独滚动而不影响批注 */
   .editor-review-mode .editor-scroll-area {
     transform: scale(0.62);
+    overflow-y: scroll;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(139, 115, 85, 0.55) transparent;
+  }
+  .editor-review-mode .editor-scroll-area::-webkit-scrollbar {
+    width: 9px;
+  }
+  .editor-review-mode .editor-scroll-area::-webkit-scrollbar-thumb {
+    background: rgba(139, 115, 85, 0.5);
+    border-radius: 4.5px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  .editor-review-mode .editor-scroll-area::-webkit-scrollbar-thumb:hover {
+    background: rgba(139, 115, 85, 0.75);
+    background-clip: padding-box;
+  }
+  .editor-review-mode .editor-scroll-area::-webkit-scrollbar-track {
+    background: rgba(139, 115, 85, 0.08);
   }
 }
 

@@ -769,36 +769,44 @@ export default function ReviewPanel() {
     }
   }
 
-  // 到达批注底部后再向下滚动 → 滑出下边栏；下边栏出现后向上滚动 → 回到批注
+  // 右侧批注栏滚动到底 → 滑出下边栏（只负责展开；收回由下边栏自身滚到顶触发）
   const touchStartY = useRef(null)
   const handleWheel = (e) => {
     const el = sideScrollRef.current
-    if (!el) return
+    if (!el || showBottomBar) return
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
-    const nearTop = el.scrollTop < 24
     const scrollable = el.scrollHeight > el.clientHeight + 40
-    if (!showBottomBar) {
-      if (e.deltaY > 0 && (nearBottom || !scrollable)) setShowBottomBar(true)
-    } else if (e.deltaY < 0 && nearTop) {
-      setShowBottomBar(false)
-    }
+    if (e.deltaY > 0 && (nearBottom || !scrollable)) setShowBottomBar(true)
   }
   const handleTouchStart = (e) => {
     touchStartY.current = e.touches?.[0]?.clientY ?? null
   }
   const handleTouchMove = (e) => {
     const el = sideScrollRef.current
-    if (!el || touchStartY.current == null) return
+    if (!el || touchStartY.current == null || showBottomBar) return
     const dy = touchStartY.current - e.touches[0].clientY
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 80
-    const nearTop = el.scrollTop < 24
     const scrollable = el.scrollHeight > el.clientHeight + 40
-    if (!showBottomBar) {
-      if (dy > 0 && (nearBottom || !scrollable)) setShowBottomBar(true)
-    } else if (dy < 0 && nearTop) {
-      setShowBottomBar(false)
-    }
+    if (dy > 0 && (nearBottom || !scrollable)) setShowBottomBar(true)
     touchStartY.current = e.touches[0].clientY
+  }
+
+  // 下边栏自身滚到顶后再向上滚动 → 收回下边栏，回到右侧批注
+  const handleBarWheel = (e) => {
+    const el = e.currentTarget
+    if (!showBottomBar || !el) return
+    if (el.scrollTop <= 4 && e.deltaY < 0) setShowBottomBar(false)
+  }
+  const barTouchY = useRef(null)
+  const handleBarTouchStart = (e) => {
+    barTouchY.current = e.touches?.[0]?.clientY ?? null
+  }
+  const handleBarTouchMove = (e) => {
+    const el = e.currentTarget
+    if (!el || barTouchY.current == null || !showBottomBar) return
+    const dy = barTouchY.current - e.touches[0].clientY
+    barTouchY.current = e.touches[0].clientY
+    if (dy < 0 && el.scrollTop <= 4) setShowBottomBar(false)
   }
 
   // 下边栏高度拖动：按住顶部抓手上下拖动，自由调整高度
@@ -1120,15 +1128,30 @@ export default function ReviewPanel() {
           >
             <div className="mt-1.5 w-12 h-1 rounded-full bg-black/20" />
           </div>
-          {/* 内容三栏：等高分栏，视觉整齐 */}
+          {/* 内容三栏：等高分栏，视觉整齐；各自滚到顶再上滑时收回下边栏 */}
           <div className="flex flex-1 min-h-0 pt-1">
-            <div className="w-[240px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto">
+            <div
+              className="w-[240px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto"
+              onWheel={handleBarWheel}
+              onTouchStart={handleBarTouchStart}
+              onTouchMove={handleBarTouchMove}
+            >
               <ScoreCard score={reviewData.score} radar={reviewData.radar} toneMetaphor={reviewData.toneMetaphor} fill />
             </div>
-            <div className="w-[280px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto">
+            <div
+              className="w-[280px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto"
+              onWheel={handleBarWheel}
+              onTouchStart={handleBarTouchStart}
+              onTouchMove={handleBarTouchMove}
+            >
               <AuthorsCard authors={reviewData.authors} fill />
             </div>
-            <div className="flex-1 min-w-0 p-4 overflow-y-auto">
+            <div
+              className="flex-1 min-w-0 p-4 overflow-y-auto"
+              onWheel={handleBarWheel}
+              onTouchStart={handleBarTouchStart}
+              onTouchMove={handleBarTouchMove}
+            >
               <SummaryCard review={reviewData} fill />
             </div>
           </div>
