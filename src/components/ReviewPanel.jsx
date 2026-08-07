@@ -503,7 +503,7 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
 
         {/* 评分：雷达图居中并稍微缩小（防止标签文字被裁），右侧呈现文中最出彩的句子与调性比喻 */}
         {(() => {
-          const bestQuote = review.annotations?.[0]?.quote || ''
+          const bestQuote = review.bestQuote || review.annotations?.[0]?.quote || ''
           return (
             <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.7)' }}>
               <RadarChart data={review.radar} size={92} />
@@ -1266,8 +1266,8 @@ export default function ReviewPanel() {
             <div className="mt-1.5 w-12 h-1 rounded-full bg-black/20" />
           </div>
           {/* 内容三栏：等高分栏，视觉整齐；各自滚到顶再上滑时收回下边栏 */}
-          {/* 顶部 pt-6 让内容避开拖动手柄（h-6）并在首行前留出空行 */}
-          <div className="flex flex-1 min-h-0 pt-6">
+          {/* 顶部 pt-6 避开拖动手柄（h-6），再加一个空行高度让首行内容前有明显的留白 */}
+          <div className="flex flex-1 min-h-0 pt-12">
             <div
               className="w-[240px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto"
               onWheel={handleBarWheel}

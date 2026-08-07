@@ -161,7 +161,101 @@ const MASTERPIECE_FINGERPRINTS = [
   { text: '北国的秋，却特别地来得清', writer: '郁达夫' }, // 《故都的秋》
   { text: '对于一个在北平住惯的人', writer: '老舍' }, // 《济南的冬天》
   { text: '那是力争上游的一种树', writer: '茅盾' }, // 《白杨礼赞》
+  { text: '梅什金公爵从瑞士回到了彼得堡', writer: '陀思妥耶夫斯基' }, // 《白痴》
+  { text: '由四川过湖南去，靠东有一条官路', writer: '沈从文' }, // 《边城》
+  { text: '北京的冬季，地上还有积雪，灰黑色的秃树枝丫叉于晴朗的天空中', writer: '鲁迅' }, // 《风筝》
+  { text: '秋天的后半夜，月亮下去了，太阳还没有出', writer: '鲁迅' }, // 《药》
+  { text: '鲁镇的酒店的格局，是和别处不同的', writer: '鲁迅' }, // 《孔乙己》
+  { text: '我冒了严寒，回到相隔二千余里，别了二十余年的故乡去', writer: '鲁迅' }, // 《故乡》
+  { text: '我家门前有两棵树，一棵是枣树，另一棵也是枣树', writer: '鲁迅' }, // 《秋夜》
+  { text: '此后我竟没有再来过这城，只是时时想起那雪', writer: '郁达夫' }, // 《故都的秋》周边
+  { text: '在北平即使不出门去罢', writer: '老舍' }, // 《济南的冬天》
+  { text: '我们过了江，进了车站', writer: '朱自清' }, // 《背影》
+  { text: '有一次，幼小的我，忽然走到母亲面前', writer: '冰心' }, // 《寄小读者》
 ]
+
+// 名篇辨识的标志性内容线索（人物名 / 经典意象 / 独特场景）：
+// 比"开篇首句"更可靠——用户可能只贴中段或节选，但标志性人物名通常仍会出现在片段里。
+// 内容命中任一标志物即强制按名篇处理，不依赖模型文风判断，是 D 方案的确定性兜底。
+const MASTERPIECE_MARKERS = [
+  // —— 中国现当代经典 ——
+  { marker: '闰土', writer: '鲁迅' },
+  { marker: '祥林嫂', writer: '鲁迅' },
+  { marker: '孔乙己', writer: '鲁迅' },
+  { marker: '阿Q', writer: '鲁迅' },
+  { marker: '人血馒头', writer: '鲁迅' },
+  { marker: '小英子', writer: '汪曾祺' },
+  { marker: '明海', writer: '汪曾祺' },
+  { marker: '高邮咸鸭蛋', writer: '汪曾祺' },
+  { marker: '方鸿渐', writer: '钱钟书' },
+  { marker: '三闾大学', writer: '钱钟书' },
+  { marker: '白流苏', writer: '张爱玲' },
+  { marker: '范柳原', writer: '张爱玲' },
+  { marker: '振保', writer: '张爱玲' },
+  { marker: '骆驼祥子', writer: '老舍' },
+  { marker: '裕泰', writer: '老舍' },
+  { marker: '觉新', writer: '巴金' },
+  { marker: '鸣凤', writer: '巴金' },
+  { marker: '汪文宣', writer: '巴金' },
+  { marker: '吴荪甫', writer: '茅盾' },
+  { marker: '庄之蝶', writer: '贾平凹' },
+  { marker: '王二', writer: '王小波' },
+  { marker: '陈清扬', writer: '王小波' },
+  { marker: '傻子少爷', writer: '阿来' },
+  { marker: '我与地坛', writer: '史铁生' },
+  { marker: '面朝大海', writer: '海子' },
+  { marker: '额尔古纳河', writer: '迟子建' },
+  // —— 外国经典（中译本的标志性人名/意象）——
+  { marker: '哈姆雷特', writer: '莎士比亚' },
+  { marker: '奥赛罗', writer: '莎士比亚' },
+  { marker: '麦克白', writer: '莎士比亚' },
+  { marker: '冉阿让', writer: '雨果' },
+  { marker: '珂赛特', writer: '雨果' },
+  { marker: '包法利', writer: '福楼拜' },
+  { marker: '于连', writer: '司汤达' },
+  { marker: '高老头', writer: '巴尔扎克' },
+  { marker: '拉斯蒂涅', writer: '巴尔扎克' },
+  { marker: '羊脂球', writer: '莫泊桑' },
+  { marker: '默尔索', writer: '加缪' },
+  { marker: '老大哥', writer: '奥威尔' },
+  { marker: '一九八四', writer: '奥威尔' },
+  { marker: '格里高尔', writer: '卡夫卡' },
+  { marker: '荒原狼', writer: '黑塞' },
+  { marker: '悉达多', writer: '黑塞' },
+  { marker: '奥涅金', writer: '普希金' },
+  { marker: '安娜·卡列尼娜', writer: '列夫·托尔斯泰' },
+  { marker: '拉斯柯尔尼科夫', writer: '陀思妥耶夫斯基' },
+  { marker: '索尼娅', writer: '陀思妥耶夫斯基' },
+  { marker: '卡拉马佐夫', writer: '陀思妥耶夫斯基' },
+  { marker: '阿辽沙', writer: '陀思妥耶夫斯基' },
+  { marker: '梅什金', writer: '陀思妥耶夫斯基' },
+  { marker: '马林鱼', writer: '海明威' },
+  { marker: '盖茨比', writer: '菲茨杰拉德' },
+  { marker: '霍尔顿', writer: '塞林格' },
+  { marker: '布恩迪亚', writer: '马尔克斯' },
+  { marker: '马孔多', writer: '马尔克斯' },
+  { marker: '阿莱夫', writer: '博尔赫斯' },
+  { marker: '苦沙弥', writer: '夏目漱石' },
+  { marker: '岛村', writer: '川端康成' },
+  { marker: '驹子', writer: '川端康成' },
+  { marker: '叶藏', writer: '太宰治' },
+  { marker: '挪威的森林', writer: '村上春树' },
+  { marker: '吉檀迦利', writer: '泰戈尔' },
+  { marker: '堂吉诃德', writer: '塞万提斯' },
+  { marker: '桑丘', writer: '塞万提斯' },
+]
+
+// 供 prompt 使用的名篇线索参照表：作家 → 标志性人物/意象，让模型同样能凭内容自判
+const MARKER_LINE = (() => {
+  const byWriter = {}
+  for (const m of MASTERPIECE_MARKERS) {
+    if (!byWriter[m.writer]) byWriter[m.writer] = []
+    byWriter[m.writer].push(m.marker)
+  }
+  return Object.entries(byWriter)
+    .map(([w, ms]) => `${w}（${[...new Set(ms)].join('/')}）`)
+    .join('；')
+})()
 
 // 识别结果：detected 是否命中共识名篇；writer 若可确定（作者名/标题/指纹对应），则为该作家
 function detectMasterpiece(meta) {
@@ -188,12 +282,24 @@ function detectMasterpiece(meta) {
       return { detected: true, writer: w || null }
     }
   }
+  // 标志性人物/意象命中：即使节选或中译本文风不典型，也能凭内容确认名篇身份
+  for (const m of MASTERPIECE_MARKERS) {
+    if (content.includes(m.marker)) {
+      const w = WRITERS.find((x) => x.name === m.writer)
+      return { detected: true, writer: w || null }
+    }
+  }
   return { detected: false, writer: null }
 }
 
 // 合并"模型凭正文文风的自判"与"服务端指纹/元信息检测"：
-// 只要模型有把握判为名篇（宁缺毋滥），就采纳模型的作者判断；否则退回服务端检测结果
+// 服务端检测（元信息 / 开篇指纹 / 标志性人物意象）是确定性依据，命中即直接采纳其作家；
+// 模型自判仅用于服务端未命中的情况（模型凭文风认出清单外/库外名篇时作为补充）
 function mergeMasterpiece(modelJudgment, serverDetect) {
+  // 服务端命中：作者以服务端为准，避免模型自判时猜错作者（如把《白痴》中译本误判为沈从文）
+  if (serverDetect && serverDetect.detected && serverDetect.writer) {
+    return { detected: true, writer: serverDetect.writer }
+  }
   const mj = modelJudgment && typeof modelJudgment === 'object' ? modelJudgment : {}
   const modelConfirmed = mj.isMasterpiece === true
   let writer = null
@@ -202,8 +308,8 @@ function mergeMasterpiece(modelJudgment, serverDetect) {
     const w = WRITERS.find((x) => x.name === name)
     if (w) writer = w
   }
+  // 服务端已识别但没有对应作家（指纹作者不在清单）时，仍视为名篇
   const detected = modelConfirmed || !!(serverDetect && serverDetect.detected)
-  if (!writer && serverDetect && serverDetect.writer) writer = serverDetect.writer
   return { detected, writer }
 }
 
@@ -265,6 +371,9 @@ ${content}
 以下都是真实存在的知名作家（作家名-代表作），请【只能】从中选择与本文风格最相似的作家，绝不能编造清单之外的作家或作品：
 ${WRITER_LINE}
 
+名篇辨识参照（仅供判断本文是否属于以下经典名篇的标志性内容线索，出现这些人物名/意象/场景即大概率是对应名篇的中译或节选）：
+${MARKER_LINE}
+
 解读总原则（务必遵守）：
 - 你以资深文学编辑的专业视角解读，但始终记住：你评价的是文字，面对的却是写作者本人。请以真诚、尊重、接纳的态度呈现意见，先看见这篇文字的努力与优点，再谈可以更好的地方
 - 侧重深入赏析与共情，而不是找错。不要刻意寻找错别字、用词之类的外在毛病（这类机械挑错常常并不准确，反而会伤到作者）；只有确实妨碍理解、明显失衡的地方，才轻轻、委婉地提一句
@@ -289,6 +398,7 @@ ${WRITER_LINE}
   "toneMetaphor": "一个'（形容词）的（名词）'格式的短语，例如'雾霭的河岸''黄昏的钟声'，用直觉式比喻概括这段文字的整体调性，只给短语本身，不要解释，也不要加任何括号",
   "styleColor": "代表本段文字风格的专属颜色，必须是合法的六位十六进制色号（如 #B8A9C9）。要求柔和、低饱和、偏淡雅的文学性色调（类似宣纸、暮色、雾霭），不要刺眼的高饱和色",
   "continuation": "约300-500字的续写（至少300字，尽量写到350字以上），风格、语气、节奏与原文完全一致，延续原文的人物、场景与情绪脉络，像同一支笔接着写下去；内容要扎实有推进、有新的细节与起伏，不要空泛抒情或机械复读，不要在这里写总结或收尾",
+  "bestQuote": "整篇文字里最出彩、最值得单独拎出来展示的那一句话（可以是任何位置的完整句子，必须在正文中逐字真实存在，含句末标点；要挑真正立得住、有文学质感的句子，不是随便选一句）",
   "emotionalClosing": "一句克制的、有文学余味的诗意升华句（S 句，20-40字），用意象或隐喻收束全篇的余韵，提升整篇格调；不一定是祝福或祝愿，可以是任何有画面感、有升华感的文学性收束，但避免鸡汤与空泛",
   "tone": "melancholy|passionate|serene|mysterious|humorous 之一，按文本整体情感基调判断",
   "masterpiece": { "isMasterpiece": 是否凭正文文风与内容判断出本文明显是某部经典名篇/名家作品（true/false）, "writer": "若 isMasterpiece 为 true 且你能确定作者，填该作者在清单中的准确名字（例如'朱自清'）；不确定或非清单内作者则填 null", "work": "若 isMasterpiece 为 true 且你能确定作品，填作品名（如'《背影》'）；不确定则填 null" },
@@ -546,13 +656,24 @@ function normalizeAuthors(parsed, forcedWriter = null) {
 
   // 按相似度从高到低排序，第一位即最相似
   result.sort((a, b) => b.similarity - a.similarity)
-  // 约束占比总和 < 100（代表不同维度/占比），否则按比例缩放到 95 以内
-  const total = result.reduce((sum, x) => sum + x.similarity, 0)
-  if (total >= 100) {
-    const scale = 95 / total
-    result.forEach((x) => { x.similarity = Math.max(1, Math.round(x.similarity * scale)) })
-    // 缩放后仍保持严格降序
+  // 有名篇强制作者时：其意义是"这位作者与本文一脉相承、居首"，不再套用普通文本的
+  // "三位占比总和 < 100"约束，只保证强制作者保持第一且其余两位严格低于它
+  const forcedIdx = forcedWriter ? result.findIndex((x) => x.name === forcedWriter.name) : -1
+  if (forcedIdx >= 0) {
+    result.forEach((x, i) => {
+      if (i !== forcedIdx && x.similarity >= result[forcedIdx].similarity) {
+        x.similarity = Math.max(1, result[forcedIdx].similarity - 10)
+      }
+    })
     result.sort((a, b) => b.similarity - a.similarity)
+  } else {
+    const total = result.reduce((sum, x) => sum + x.similarity, 0)
+    if (total >= 100) {
+      const scale = 95 / total
+      result.forEach((x) => { x.similarity = Math.max(1, Math.round(x.similarity * scale)) })
+      // 缩放后仍保持严格降序
+      result.sort((a, b) => b.similarity - a.similarity)
+    }
   }
 
   // 保证三位里至少有一位外国作家：若全是中国人，把相似度最低的一位换成外国作家
@@ -600,6 +721,22 @@ export function normalizeReview(parsed, content, opts = {}) {
   const rawAnno = (Array.isArray(parsed.annotations) ? parsed.annotations : [])
     .filter((a) => a && String(a.comment || '').trim())
     .slice(0, annoCap)
+
+  // 出彩句（导出卡展示用）：模型给出后匹配到真实句子；若未给出或匹配不上，退回第一条批注的引文
+  const bestQuote = (() => {
+    const q = String(parsed?.bestQuote || '').trim().replace(/\s+/g, '')
+    const stripped = q.replace(/[，。！？；：""''（）…、—\-\s]/g, '')
+    let best = null
+    let bestScore = 0
+    if (stripped) {
+      for (const s of sentences) {
+        const sc = overlapScore(stripped, s)
+        if (sc > bestScore) { bestScore = sc; best = s }
+      }
+    }
+    if (best && bestScore >= 6) return best
+    return annotations[0]?.quote || best || sentences[0] || ''
+  })()
 
   const usedIdx = new Set()
   const pickByTextOrder = (preferPos) => {
@@ -676,6 +813,7 @@ export function normalizeReview(parsed, content, opts = {}) {
     authors,
     annotations,
     continuation: parsed?.continuation || '',
+    bestQuote,
     textOverview: parsed?.textOverview || '',
     literaryAnalysis: parsed?.literaryAnalysis || '',
     comparison: parsed?.comparison || parsed?.hardIssues || '',
@@ -755,6 +893,7 @@ function buildHeuristicReview(content, title, author, masterpiece = false) {
     authors,
     annotations,
     continuation: '',
+    bestQuote: annotations[0]?.quote || '',
     textOverview: '这段文字以细腻的笔触展开，叙事视角稳定，整体气质沉静而有温度。',
     literaryAnalysis: '文字的语感与意象经营都很用心，个别处可再收敛一些直白抒情，让余味更绵长。',
     comparison: '若放在沈从文、汪曾祺一脉来读，你的句子在节奏上是接近的，只是意象还略欠一层打磨，再写得含蓄些会更耐读。',

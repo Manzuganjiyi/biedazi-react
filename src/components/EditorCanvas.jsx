@@ -18,9 +18,7 @@ export default function EditorCanvas() {
   const scrollAreaRef = useRef(null)
   const contRef = useRef(null)
   const contTouchY = useRef(null)
-  const upAccum = useRef(0)
   const downAccum = useRef(0)
-  const upStart = useRef(0)
   const downStart = useRef(0)
   const [isEmpty, setIsEmpty] = useState(true)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
@@ -156,9 +154,9 @@ export default function EditorCanvas() {
     })
   }, [activeArticleId, resultsVisible, annotations, showContinuation])
 
-  // 与回退键一致的双向滚动切换：
-  // 滚动到顶再向上滚 → 收起右栏/底栏，切到纯编辑器+续写视图（同 returnToEditor 的收起）
-  // 滚动到底再向下滚 → 重新展开右栏（同 returnToEditor 的展开）
+  // 与回退键一致的滚动切换：
+  // 滚动到底再向下滚 → 收起右栏/底栏，切到纯编辑器+续写视图（同 returnToEditor 的收起）
+  // 续写态滚动到底再向下滚 → 重新展开右栏（同 returnToEditor 的展开）
   // 两方向都带累积缓冲，避免顺手一滚就误触
   const revealContinuation = useCallback(() => {
     setShowContinuation(true)
@@ -174,44 +172,25 @@ export default function EditorCanvas() {
   const handleEditorWheel = useCallback((e) => {
     const el = scrollAreaRef.current
     if (!el || !resultsVisible) return
-    const nearTop = el.scrollTop <= 4
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30
     const now = Date.now()
 
-    if (!showContinuation) {
-      // 右栏展开态：滚到顶后再向上滚 → 收起
-      if (nearTop && e.deltaY < 0) {
-        if (!upStart.current || now - upStart.current > 400) {
-          upStart.current = now
-          upAccum.current = 0
-        }
-        upAccum.current += Math.abs(e.deltaY)
-        if (upAccum.current >= 120) {
-          upAccum.current = 0
-          upStart.current = 0
-          revealContinuation()
-        }
-      } else {
-        upAccum.current = 0
-        upStart.current = 0
+    // 只在"滚到底后再向下滚"时切换：面板展开态 → 进入续写；续写态 → 重新展开面板
+    if (nearBottom && e.deltaY > 0) {
+      if (!downStart.current || now - downStart.current > 400) {
+        downStart.current = now
+        downAccum.current = 0
       }
-    } else {
-      // 纯编辑器态：滚到底后再向下滚 → 展开右栏
-      if (nearBottom && e.deltaY > 0) {
-        if (!downStart.current || now - downStart.current > 400) {
-          downStart.current = now
-          downAccum.current = 0
-        }
-        downAccum.current += Math.abs(e.deltaY)
-        if (downAccum.current >= 120) {
-          downAccum.current = 0
-          downStart.current = 0
-          expandPanels()
-        }
-      } else {
+      downAccum.current += Math.abs(e.deltaY)
+      if (downAccum.current >= 120) {
         downAccum.current = 0
         downStart.current = 0
+        if (showContinuation) expandPanels()
+        else revealContinuation()
       }
+    } else {
+      downAccum.current = 0
+      downStart.current = 0
     }
   }, [showContinuation, resultsVisible, revealContinuation, expandPanels])
 
@@ -223,48 +202,27 @@ export default function EditorCanvas() {
     const el = scrollAreaRef.current
     if (!el || contTouchY.current == null || !resultsVisible) return
     const dy = contTouchY.current - e.touches[0].clientY
-    const nearTop = el.scrollTop <= 4
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30
     const now = Date.now()
 
-    if (!showContinuation) {
-      // 右栏展开态：滚到顶后再向上滚（dy<0 向上滚动）→ 收起
-      if (nearTop && dy < 0) {
-        if (!upStart.current || now - upStart.current > 400) {
-          upStart.current = now
-          upAccum.current = 0
-        }
-        upAccum.current += Math.abs(dy)
-        if (upAccum.current >= 120) {
-          upAccum.current = 0
-          upStart.current = 0
-          revealContinuation()
-          contTouchY.current = null
-          return
-        }
-      } else {
-        upAccum.current = 0
-        upStart.current = 0
+    // 只在"滚到底后再向下滚（dy>0）"时切换：面板展开态 → 进入续写；续写态 → 重新展开面板
+    if (nearBottom && dy > 0) {
+      if (!downStart.current || now - downStart.current > 400) {
+        downStart.current = now
+        downAccum.current = 0
       }
-    } else {
-      // 纯编辑器态：滚到底后再向下滚（dy>0 向下滚动）→ 展开右栏
-      if (nearBottom && dy > 0) {
-        if (!downStart.current || now - downStart.current > 400) {
-          downStart.current = now
-          downAccum.current = 0
-        }
-        downAccum.current += Math.abs(dy)
-        if (downAccum.current >= 120) {
-          downAccum.current = 0
-          downStart.current = 0
-          expandPanels()
-          contTouchY.current = null
-          return
-        }
-      } else {
+      downAccum.current += Math.abs(dy)
+      if (downAccum.current >= 120) {
         downAccum.current = 0
         downStart.current = 0
+        if (showContinuation) expandPanels()
+        else revealContinuation()
+        contTouchY.current = null
+        return
       }
+    } else {
+      downAccum.current = 0
+      downStart.current = 0
     }
     contTouchY.current = e.touches[0].clientY
   }, [showContinuation, resultsVisible, revealContinuation, expandPanels])
