@@ -11,6 +11,16 @@ const TONE_COLORS = {
   default: '#FAF9F6',
 }
 
+// 内容指纹：用于判断内容是否改动过（不含标题/作者，因为正文才是解读对象）
+const contentFingerprint = (content = '') => {
+  let h = 5381
+  const s = String(content || '')
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) + h + s.charCodeAt(i)) >>> 0
+  }
+  return h
+}
+
 const createArticle = (title = '未命名篇章') => ({
   id: `art_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
   title: title || '未命名篇章',
@@ -19,6 +29,7 @@ const createArticle = (title = '未命名篇章') => ({
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   review: null,
+  reviewFp: null,
 })
 
 const initialArticles = [createArticle('未命名篇章 1')]
@@ -40,6 +51,7 @@ export const useWriterStore = create(
       showContinuation: false,
       continuationDimmed: false,
       toneColor: TONE_COLORS.default,
+      cachedReview: null,
 
       setArticles: (articles) => set({ articles }),
 
@@ -57,6 +69,7 @@ export const useWriterStore = create(
           ghostText: '',
           ghostActive: false,
           toneColor: TONE_COLORS.default,
+          cachedReview: null,
         })
       },
 
@@ -103,6 +116,7 @@ export const useWriterStore = create(
       setShowBottomBar: (visible) => set({ showBottomBar: visible }),
       setShowContinuation: (visible) => set({ showContinuation: visible }),
       setContinuationDimmed: (dimmed) => set({ continuationDimmed: !!dimmed }),
+      setCachedReview: (review) => set({ cachedReview: review }),
       setBottomBarH: (vh) => set({ bottomBarH: Math.max(24, Math.min(86, Number(vh) || 50)) }),
       requestPanelClose: () => set((s) => ({ closeRequestId: s.closeRequestId + 1 })),
       setToneColor: (tone) => set({ toneColor: TONE_COLORS[tone] || TONE_COLORS.default }),
@@ -126,7 +140,12 @@ export const useWriterStore = create(
       },
 
       saveReview: (review) => {
-        get().updateActiveArticle({ review })
+        const { articles, activeArticleId } = get()
+        const art = articles.find(a => a.id === activeArticleId)
+        get().updateActiveArticle({
+          review,
+          reviewFp: art ? contentFingerprint(art.content) : null,
+        })
       },
 
       triggerReview: () => {
@@ -139,12 +158,21 @@ export const useWriterStore = create(
           return
         }
 
-        const editorScroll = document.querySelector('.editor-scroll-area')
-        if (editorScroll) {
-          editorScroll.scrollTo({ top: 0, behavior: 'smooth' })
+        // 内容未改动且有上次解读 → 直接复用缓存，不重新分析
+        const cached = activeArticle.review
+          && activeArticle.reviewFp === contentFingerprint(activeArticle.content)
+          ? activeArticle.review
+          : null
+        set({ cachedReview: cached })
+
+        if (!cached) {
+          const editorScroll = document.querySelector('.editor-scroll-area')
+          if (editorScroll) {
+            editorScroll.scrollTo({ top: 0, behavior: 'smooth' })
+          }
         }
 
-        setThinking(true, THINKING_STEPS)
+        setThinking(!cached, THINKING_STEPS)
         setReviewing(true)
       },
 
@@ -160,6 +188,7 @@ export const useWriterStore = create(
           ghostText: '',
           ghostActive: false,
           toneColor: TONE_COLORS.default,
+          cachedReview: null,
         })
       },
 

@@ -509,12 +509,12 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
               <RadarChart data={review.radar} size={92} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 {bestQuote && (
-                  <div style={{ fontSize: 12, color: ink, fontStyle: 'italic', lineHeight: 1.7, marginBottom: 8, borderLeft: `2px solid ${accent}`, paddingLeft: 10 }}>
+                  <div style={{ fontSize: 11, color: ink, fontStyle: 'italic', lineHeight: 1.7, marginBottom: 8, borderLeft: `2px solid ${accent}`, paddingLeft: 10 }}>
                     {bestQuote}
                   </div>
                 )}
                 {review.toneMetaphor && (
-                  <div style={{ fontSize: 13, color: accent, fontStyle: 'italic', letterSpacing: '0.04em' }}>
+                  <div style={{ fontSize: 12, color: accent, fontStyle: 'italic', letterSpacing: '0.04em', textAlign: 'center', marginLeft: 12 }}>
                     {review.toneMetaphor}
                   </div>
                 )}
@@ -569,6 +569,7 @@ export default function ReviewPanel() {
     toneColor, closeReview, saveReview, setStyleColor, setThinking,
     showBottomBar, setShowBottomBar, setResultsVisible, closeRequestId,
     bottomBarH, setBottomBarH, showContinuation, setShowContinuation,
+    cachedReview, setCachedReview,
   } = useWriterStore()
 
   const [activeStep, setActiveStep] = useState(0)
@@ -582,6 +583,10 @@ export default function ReviewPanel() {
   const [shareImage, setShareImage] = useState(null)
   const shareCardRef = useRef(null)
   const sideScrollRef = useRef(null)
+  const drawerScrollRef = useRef(null)
+  const drawerTouchY = useRef(null)
+  const drawerUpAccum = useRef(0)
+  const drawerUpStart = useRef(0)
 
   const activeArticle = articles.find(a => a.id === activeArticleId)
 
@@ -605,6 +610,17 @@ export default function ReviewPanel() {
     setShowBottomBar(false)
     setShowContinuation(false)
     setBottomBarH(isMobile ? 62 : 50)
+
+    // 内容未改动 → 直接复用上次解读，跳过思考与 API
+    if (cachedReview) {
+      setThinking(false, [])
+      setStyleColor(cachedReview.styleColor || TONE_COLORS[cachedReview.tone])
+      setReviewData(cachedReview)
+      setCachedReview(null)
+      setShowResults(true)
+      setResultsVisible(true)
+      return
+    }
 
     // 视觉推进与真实 API 调用并行：按 20s 名义时长均衡分配 5 个阶段
     const TOTAL_MS = 20000
@@ -811,6 +827,59 @@ export default function ReviewPanel() {
   // 只有当"当前光标处真正可滚动的元素"已经滚到顶（向上没有更多内容可看），
   // 且累积向上滚动超过阈值时才收回，避免刚进总评区、内容一滚就被立刻收起
   const barUpAccum = useRef(0)
+  const barUpStart = useRef(0)
+
+  // 移动端抽屉：内容滚到顶后再向下滑（dy<0 上滑）→ 收起抽屉，回到编辑器视角（同桌面下边栏收回）
+  const handleDrawerWheel = (e) => {
+    const el = drawerScrollRef.current
+    if (!el) return
+    const scroller = findScrollable(e.target)
+    const atTop = !scroller || scroller.scrollTop <= 4
+    if (atTop && e.deltaY < 0) {
+      const now = Date.now()
+      if (!drawerUpStart.current || now - drawerUpStart.current > 400) {
+        drawerUpStart.current = now
+        drawerUpAccum.current = 0
+      }
+      drawerUpAccum.current += Math.abs(e.deltaY)
+      if (drawerUpAccum.current >= 120) {
+        drawerUpAccum.current = 0
+        drawerUpStart.current = 0
+        setShowContinuation(true)
+        setShowBottomBar(false)
+      }
+    } else {
+      drawerUpAccum.current = 0
+      drawerUpStart.current = 0
+    }
+  }
+  const handleDrawerTouchStart = (e) => {
+    drawerTouchY.current = e.touches?.[0]?.clientY ?? null
+  }
+  const handleDrawerTouchMove = (e) => {
+    if (drawerTouchY.current == null) return
+    const dy = drawerTouchY.current - e.touches[0].clientY
+    drawerTouchY.current = e.touches[0].clientY
+    const scroller = findScrollable(e.target)
+    const atTop = !scroller || scroller.scrollTop <= 4
+    if (atTop && dy < 0) {
+      const now = Date.now()
+      if (!drawerUpStart.current || now - drawerUpStart.current > 400) {
+        drawerUpStart.current = now
+        drawerUpAccum.current = 0
+      }
+      drawerUpAccum.current += Math.abs(dy)
+      if (drawerUpAccum.current >= 120) {
+        drawerUpAccum.current = 0
+        drawerUpStart.current = 0
+        setShowContinuation(true)
+        setShowBottomBar(false)
+      }
+    } else {
+      drawerUpAccum.current = 0
+      drawerUpStart.current = 0
+    }
+  }
 
   // 从事件目标向上找到真正发生滚动的元素（总评/作者/评级各自的内层滚动容器）
   const findScrollable = (node) => {
@@ -827,14 +896,22 @@ export default function ReviewPanel() {
     const scroller = findScrollable(e.target)
     const atTop = !scroller || scroller.scrollTop <= 4
     if (atTop && e.deltaY < 0) {
-      barUpAccum.current += Math.abs(e.deltaY)
-      if (barUpAccum.current >= 60) {
+      const now = Date.now()
+      // 天然缓冲：同一段连续向上滚动需在时间窗内累积足够距离才收回，杜绝顺手一滚就消失
+      if (!barUpStart.current || now - barUpStart.current > 400) {
+        barUpStart.current = now
         barUpAccum.current = 0
+      }
+      barUpAccum.current += Math.abs(e.deltaY)
+      if (barUpAccum.current >= 120) {
+        barUpAccum.current = 0
+        barUpStart.current = 0
         setShowBottomBar(false)
       }
     } else {
       // 下面还有内容可往上滚，或正在往下滚：先让内容自己滚动，不参与收回
       barUpAccum.current = 0
+      barUpStart.current = 0
     }
   }
   const barTouchY = useRef(null)
@@ -848,13 +925,20 @@ export default function ReviewPanel() {
     const scroller = findScrollable(e.target)
     const atTop = !scroller || scroller.scrollTop <= 4
     if (atTop && dy < 0) {
-      barUpAccum.current += Math.abs(dy)
-      if (barUpAccum.current >= 60) {
+      const now = Date.now()
+      if (!barUpStart.current || now - barUpStart.current > 400) {
+        barUpStart.current = now
         barUpAccum.current = 0
+      }
+      barUpAccum.current += Math.abs(dy)
+      if (barUpAccum.current >= 120) {
+        barUpAccum.current = 0
+        barUpStart.current = 0
         setShowBottomBar(false)
       }
     } else {
       barUpAccum.current = 0
+      barUpStart.current = 0
     }
   }
 
@@ -942,7 +1026,13 @@ export default function ReviewPanel() {
               </>
             )}
           </div>
-          <div className="relative flex-1 min-h-0 overflow-y-auto p-4 pt-2">
+          <div
+            ref={drawerScrollRef}
+            onWheel={handleDrawerWheel}
+            onTouchStart={handleDrawerTouchStart}
+            onTouchMove={handleDrawerTouchMove}
+            className="relative flex-1 min-h-0 overflow-y-auto p-4 pt-2"
+          >
             <AnimatePresence mode="wait">
               {isThinking && !showResults && !error ? (
                 <ThinkingProcess steps={thinkingSteps} activeIndex={activeStep} progress={thinkingProgress} />
@@ -1180,9 +1270,9 @@ export default function ReviewPanel() {
             <div className="mt-1.5 w-12 h-1 rounded-full bg-black/20" />
           </div>
           {/* 内容三栏：等高分栏，视觉整齐；各自滚到顶再上滑时收回下边栏 */}
-          <div className="flex flex-1 min-h-0 pt-1">
+          <div className="flex flex-1 min-h-0 pt-2">
             <div
-              className="w-[240px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto"
+              className="w-[240px] flex-shrink-0 pt-4 pb-4 pl-4 pr-4 border-r border-black/5 overflow-y-auto"
               onWheel={handleBarWheel}
               onTouchStart={handleBarTouchStart}
               onTouchMove={handleBarTouchMove}
@@ -1190,7 +1280,7 @@ export default function ReviewPanel() {
               <ScoreCard score={reviewData.score} radar={reviewData.radar} toneMetaphor={reviewData.toneMetaphor} fill />
             </div>
             <div
-              className="w-[280px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto"
+              className="w-[280px] flex-shrink-0 pt-4 pb-4 pl-4 pr-4 border-r border-black/5 overflow-y-auto"
               onWheel={handleBarWheel}
               onTouchStart={handleBarTouchStart}
               onTouchMove={handleBarTouchMove}
@@ -1198,7 +1288,7 @@ export default function ReviewPanel() {
               <AuthorsCard authors={reviewData.authors} fill />
             </div>
             <div
-              className="flex-1 min-w-0 p-4 overflow-y-auto"
+              className="flex-1 min-w-0 pt-4 pb-4 pl-4 pr-4 overflow-y-auto"
               onWheel={handleBarWheel}
               onTouchStart={handleBarTouchStart}
               onTouchMove={handleBarTouchMove}

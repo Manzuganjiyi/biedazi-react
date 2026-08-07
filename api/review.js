@@ -191,6 +191,22 @@ function detectMasterpiece(meta) {
   return { detected: false, writer: null }
 }
 
+// 合并"模型凭正文文风的自判"与"服务端指纹/元信息检测"：
+// 只要模型有把握判为名篇（宁缺毋滥），就采纳模型的作者判断；否则退回服务端检测结果
+function mergeMasterpiece(modelJudgment, serverDetect) {
+  const mj = modelJudgment && typeof modelJudgment === 'object' ? modelJudgment : {}
+  const modelConfirmed = mj.isMasterpiece === true
+  let writer = null
+  if (modelConfirmed && typeof mj.writer === 'string') {
+    const name = mj.writer.trim()
+    const w = WRITERS.find((x) => x.name === name)
+    if (w) writer = w
+  }
+  const detected = modelConfirmed || !!(serverDetect && serverDetect.detected)
+  if (!writer && serverDetect && serverDetect.writer) writer = serverDetect.writer
+  return { detected, writer }
+}
+
 // 确定性评分：同文同分。名篇则强制高位，普通文本完全由启发式计算得出（与 AI 无关，保证稳定）
 function finalizeScores(computed, masterpiece) {
   if (!masterpiece) return computed
@@ -256,7 +272,7 @@ ${WRITER_LINE}
 - 优先维护作品的文学性，而不是可读性
 - 不要为了顺畅而消除作者刻意制造的晦涩、断裂、意识跳跃；不要把奇异的意象改写得通俗好懂
 - 叙事层面刻意的断裂、歧义、含混属于作者的写作选择，不视作错误，也绝不要求改顺
-- 名著豁免：若输入文本明显是已知的经典名篇或名家作品（如《背影》《荷塘月色》《故乡》等名作片段），请先识别其身份，评价必须符合其既定的文学地位——客观、尊重，肯定其经典价值，严禁对名著给出低分或强烈的负面批评${masterpieceLine}${forcedWriterLine}
+- 名著豁免：请凭【正文的文风与内容】判断本文是否明显是某部经典名篇或名家作品的片段（如《背影》《荷塘月色》《故乡》《罪与罚》等）。判断只依据正文本身的文字气质与内容，不依赖作品标题、作者名或任何元信息；如果你凭文风与内容确认了它的名篇身份，评价必须符合其既定的文学地位——客观、尊重，肯定其经典价值，严禁对名著给出低分或强烈的负面批评${masterpieceLine}${forcedWriterLine}
 
 评分标准（务必遵守）：
 - 60 分 = 省市级文学刊物可发表的水平；70 分 = 国内重要文学期刊水平；80 分 = 顶尖（《收获》《人民文学》级别）；90 分以上 = 一流作家的名篇；100 分 = 诺贝尔文学奖级别
@@ -269,12 +285,13 @@ ${WRITER_LINE}
   "textOverview": "总评第一段的自然段落（约70-90字，不要用序号不要分点不要任何小标题，也不要写'概览''文本分析'这类字眼）：像 MBTI 人格解读那样，用理解与共情的口吻，先感受这段文字流露出的气质与心绪（叙事视角：正文用'他/她'即第三人称，用'我'即第一人称，别弄错），说出'这段文字像是怎样一个人写下的'——可以落到开头的第一个镜头、最触动的那个细节上，让作者一读就知道你真的读进去了。语气真诚、关怀，像在读懂作者这个人",
   "literaryAnalysis": "总评第二段的自然段落（约220-280字，务必言之有物、有真正的文学深度，不要序号不要分点不要小标题）：像一位懂你的编辑那样，做深入赏析——（a）具体引证：挑出原文一两处真正立起来的句子/意象/细节，说明它好在哪（节奏怎么起落、意象如何经营、留白与克制怎样生效、视角与句法传达了何种情绪）；（b）指出结构上的脉络与起伏；（c）若确有做得不够好的地方，用委婉、商量的语气轻轻带过（例如'或许可以更含蓄一点''这里可能稍微直接了些'），把'作者主动的写作选择'与'真正的缺憾'区分开，绝不刻意挑刺",
   "comparison": "总评第三段的自然段落（约180-240字，不要序号不要分点不要小标题）：挑出文中一两个具体的意象（如'暮色''雨声''旧书页'）或一种笔法，先写作者是如何呈现它们的，再写清单里最相似的那位作家在处理同类意象时的真实笔法（务必符合该作家作品的真实风格，不可编造，例如汪曾祺写吃食讲究味道的余韵、沈从文写湘西景物爱用光与水的层次、张爱玲善用色彩与器物写苍凉），具体到该作家某一部作品的某个片段；通过这样的对照，点明本文与这位作家的接近之处与真实距离，让作者更清楚地看见自己的水平处在哪个位置、下一步往哪个方向走",
-  "conclusion": "总评第四段的自然段落（约40字，不要序号不要分点不要小标题）：这是总评的收尾段，承接上面三段，用温暖肯定但实在的口吻给整篇文字一个阶段性的定评——可以总结这篇文字的整体气质或作者最值得肯定的地方，让读者觉得'这段读完了，评价也完整了'。特别注意：这一段是点评的收尾，不是升华句也不是祝福语，绝对不要出现'愿''祝''希望你''愿你'这类祝愿、祝福或升华金句（升华句与祝福语由 emotionalClosing 字段单独呈现，conclusion 里一个字都不能有）",
+  "conclusion": "总评第四段的自然段落（约40字，不要序号不要分点不要小标题）：这是总评的收尾段，承接上面三段，用温暖肯定但实在的口吻给整篇文字一个阶段性的定评——可以总结这篇文字的整体气质或作者最值得肯定的地方，让读者觉得'这段读完了，评价也完整了'。特别注意：这一段是点评的收尾，不是升华句也不是祝福语，绝对不要出现'愿''祝''希望你''愿你'这类祝愿、祝福或升华金句（S 句由 emotionalClosing 字段单独呈现，conclusion 里一个字都不能有）",
   "toneMetaphor": "一个'（形容词）的（名词）'格式的短语，例如'雾霭的河岸''黄昏的钟声'，用直觉式比喻概括这段文字的整体调性，只给短语本身，不要解释，也不要加任何括号",
   "styleColor": "代表本段文字风格的专属颜色，必须是合法的六位十六进制色号（如 #B8A9C9）。要求柔和、低饱和、偏淡雅的文学性色调（类似宣纸、暮色、雾霭），不要刺眼的高饱和色",
   "continuation": "约300-500字的续写（至少300字，尽量写到350字以上），风格、语气、节奏与原文完全一致，延续原文的人物、场景与情绪脉络，像同一支笔接着写下去；内容要扎实有推进、有新的细节与起伏，不要空泛抒情或机械复读，不要在这里写总结或收尾",
-  "emotionalClosing": "一句克制的、有文学余味的祝福或升华语（20-40字），避免鸡汤与空泛，最好用意象或隐喻收束，能提升整篇格调",
+  "emotionalClosing": "一句克制的、有文学余味的诗意升华句（S 句，20-40字），用意象或隐喻收束全篇的余韵，提升整篇格调；不一定是祝福或祝愿，可以是任何有画面感、有升华感的文学性收束，但避免鸡汤与空泛",
   "tone": "melancholy|passionate|serene|mysterious|humorous 之一，按文本整体情感基调判断",
+  "masterpiece": { "isMasterpiece": 是否凭正文文风与内容判断出本文明显是某部经典名篇/名家作品（true/false）, "writer": "若 isMasterpiece 为 true 且你能确定作者，填该作者在清单中的准确名字（例如'朱自清'）；不确定或非清单内作者则填 null", "work": "若 isMasterpiece 为 true 且你能确定作品，填作品名（如'《背影》'）；不确定则填 null" },
   "scores": { "language": 0-100整数, "structure": 0-100整数, "imagery": 0-100整数, "emotion": 0-100整数, "innovation": 0-100整数, "total": 0-100整数 },
   "authors": [
     { "name": "从上述清单挑选的第1位风格最相似的作家名", "work": "该作家的代表作", "reason": "一句简短的话说明该作家与本文风格相似的原因，约20-40字", "similarity": 0-100整数（风格相似度百分比） },
@@ -294,7 +311,8 @@ ${WRITER_LINE}
 5. authors 数组必须【正好 3 项】，且每位都严格出自上面的作家清单，work 必须是该作家真实存在的代表作；reason 必须是一句具体的、结合本文特点的相似理由（说明风格/笔法/题材上哪里像），禁止空话套话，禁止从清单外编造；similarity 必须是 0-100 之间的整数，表示该作家风格与本文的相似度占比（第一、二、三位依次递减，通常 35-40/25-30/15-20 这一档），且三位之和必须小于 100（代表不同维度的占比）；【重要】三位中至少有一位必须是清单中的外国作家（非中国作家，如托尔斯泰、川端康成、卡夫卡、海明威、村上春树等），不要三位全是中国人
 6. tone 只能是 melancholy(清冷忧郁)、passionate(热烈激情)、serene(宁静平和)、mysterious(神秘幽微)、humorous(幽默诙谐) 之一
 7. scores 的五个分项与 total 都必须是 0-100 之间的整数，且必须严格对照评分标准与你的评语来给，禁止一律给高分
-8. 只输出这一个 JSON 对象，禁止复述作家清单，禁止任何清单之外的解释文字`
+8. masterpiece.isMasterpiece 必须只凭正文文风与内容判断，绝不参考标题与作者名；只要有一丝不确定就不判为 true（宁缺毋滥）；writer 只有在确凿且存在于作家清单时才有值，否则一律 null
+9. 只输出这一个 JSON 对象，禁止复述作家清单，禁止任何清单之外的解释文字`
 }
 
 export function extractJson(text) {
@@ -559,7 +577,7 @@ function normalizeAuthors(parsed, forcedWriter = null) {
 export function normalizeReview(parsed, content, opts = {}) {
   const annoCap = clampCount(content.trim().length)
 
-  // 总评结尾段禁止出现祝福语（祝福语由 emotionalClosing 单独呈现）：
+  // 总评结尾段禁止出现 S 句（S 句由 emotionalClosing 单独呈现）：
   // 把整段按句末标点切分，剔除任何像祝福/祝愿/升华的句子，不只限于句首
   const scrubBlessing = (t) => {
     const s = String(t || '').trim()
@@ -804,8 +822,8 @@ export default async function handler(req) {
     }
 
     const annoCount = clampCount(content.trim().length)
-    const masterpiece = detectMasterpiece({ title, author, content })
-    const prompt = buildPrompt({ content, title, author, annoCount, masterpiece: masterpiece.detected, masterpieceWriter: masterpiece.writer })
+    const serverDetect = detectMasterpiece({ title, author, content })
+    const prompt = buildPrompt({ content, title, author, annoCount, masterpiece: serverDetect.detected, masterpieceWriter: serverDetect.writer })
 
     // 低温度优先（保证评分稳定），最多尝试 3 次不同的温度与温度抖动
     const attempts = [0.35, 0.2, 0.5]
@@ -826,12 +844,14 @@ export default async function handler(req) {
     if (!parsed) {
       // 完全无法解析：退化为基于文本的启发式解读，保证用户总能拿到结果
       console.error('All parsing attempts failed, using heuristic fallback')
-      return new Response(JSON.stringify(buildHeuristicReview(content, title, author, masterpiece)), {
+      return new Response(JSON.stringify(buildHeuristicReview(content, title, author, serverDetect)), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
     }
 
+    // 名著判定以模型凭正文文风的自判为主，服务端指纹/元信息兜底
+    const masterpiece = mergeMasterpiece(parsed?.masterpiece, serverDetect)
     const result = normalizeReview(parsed, content, { masterpiece: masterpiece.detected, masterpieceWriter: masterpiece.writer })
 
     // 续写未达到 300-500 字时，用一次专门调用补齐，保证续写够长、够有推进

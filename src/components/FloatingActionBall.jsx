@@ -31,7 +31,7 @@ export default function FloatingActionBall() {
     return <Feather className="w-6 h-6" />
   }
 
-  const tooltipText = isDone ? (showContinuation ? '展开点评' : '返回编辑') : 'AI 锐评'
+  const tooltipText = isDone ? (showContinuation ? '展开点评' : '返回编辑') : '开始解读'
 
   // 移动端底部抽屉自带关闭按钮，审稿期间隐藏悬浮球，避免遮挡
   if (isMobile && isReviewing) return null

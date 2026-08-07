@@ -18,6 +18,8 @@ export default function EditorCanvas() {
   const scrollAreaRef = useRef(null)
   const contRef = useRef(null)
   const contTouchY = useRef(null)
+  const upAccum = useRef(0)
+  const downAccum = useRef(0)
   const [isEmpty, setIsEmpty] = useState(true)
 
   const activeArticle = articles.find(a => a.id === activeArticleId)
@@ -145,20 +147,51 @@ export default function EditorCanvas() {
     })
   }, [activeArticleId, resultsVisible, annotations, showContinuation])
 
-  // 编辑器滚动到最底部后继续向下滚动 → 切到续写模式：收起右侧边栏与下边栏，仅保留编辑器并展示续写
+  // 与回退键一致的双向滚动切换：
+  // 滚动到顶再向上滚 → 收起右栏/底栏，切到纯编辑器+续写视图（同 returnToEditor 的收起）
+  // 滚动到底再向下滚 → 重新展开右栏（同 returnToEditor 的展开）
+  // 两方向都带累积缓冲，避免顺手一滚就误触
   const revealContinuation = useCallback(() => {
     setShowContinuation(true)
     setShowBottomBar(false)
     setContinuationDimmed(false)
   }, [setShowContinuation, setShowBottomBar, setContinuationDimmed])
 
+  const expandPanels = useCallback(() => {
+    setShowContinuation(false)
+    setContinuationDimmed(false)
+  }, [setShowContinuation, setContinuationDimmed])
+
   const handleEditorWheel = useCallback((e) => {
     const el = scrollAreaRef.current
-    if (!el || showContinuation || !resultsVisible) return
+    if (!el || !resultsVisible) return
+    const nearTop = el.scrollTop <= 4
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30
-    const scrollable = el.scrollHeight > el.clientHeight + 30
-    if (e.deltaY > 0 && (nearBottom || !scrollable)) revealContinuation()
-  }, [showContinuation, resultsVisible, revealContinuation])
+
+    if (!showContinuation) {
+      // 右栏展开态：滚到顶后再向上滚 → 收起
+      if (nearTop && e.deltaY < 0) {
+        upAccum.current += Math.abs(e.deltaY)
+        if (upAccum.current >= 60) {
+          upAccum.current = 0
+          revealContinuation()
+        }
+      } else {
+        upAccum.current = 0
+      }
+    } else {
+      // 纯编辑器态：滚到底后再向下滚 → 展开右栏
+      if (nearBottom && e.deltaY > 0) {
+        downAccum.current += Math.abs(e.deltaY)
+        if (downAccum.current >= 60) {
+          downAccum.current = 0
+          expandPanels()
+        }
+      } else {
+        downAccum.current = 0
+      }
+    }
+  }, [showContinuation, resultsVisible, revealContinuation, expandPanels])
 
   const handleEditorTouchStart = useCallback((e) => {
     contTouchY.current = e.touches?.[0]?.clientY ?? null
@@ -166,17 +199,40 @@ export default function EditorCanvas() {
 
   const handleEditorTouchMove = useCallback((e) => {
     const el = scrollAreaRef.current
-    if (!el || contTouchY.current == null || showContinuation || !resultsVisible) return
+    if (!el || contTouchY.current == null || !resultsVisible) return
     const dy = contTouchY.current - e.touches[0].clientY
+    const nearTop = el.scrollTop <= 4
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30
-    const scrollable = el.scrollHeight > el.clientHeight + 30
-    if (dy > 0 && (nearBottom || !scrollable)) {
-      revealContinuation()
-      contTouchY.current = null
-      return
+
+    if (!showContinuation) {
+      // 右栏展开态：滚到顶后再向上滚（dy<0 向上滚动）→ 收起
+      if (nearTop && dy < 0) {
+        upAccum.current += Math.abs(dy)
+        if (upAccum.current >= 60) {
+          upAccum.current = 0
+          revealContinuation()
+          contTouchY.current = null
+          return
+        }
+      } else {
+        upAccum.current = 0
+      }
+    } else {
+      // 纯编辑器态：滚到底后再向下滚（dy>0 向下滚动）→ 展开右栏
+      if (nearBottom && dy > 0) {
+        downAccum.current += Math.abs(dy)
+        if (downAccum.current >= 60) {
+          downAccum.current = 0
+          expandPanels()
+          contTouchY.current = null
+          return
+        }
+      } else {
+        downAccum.current = 0
+      }
     }
     contTouchY.current = e.touches[0].clientY
-  }, [showContinuation, resultsVisible, revealContinuation])
+  }, [showContinuation, resultsVisible, revealContinuation, expandPanels])
 
   // 滚动触发（非淡色）切到续写模式后，把续写内容滚动到视野内；输入触发的淡色保留不抢光标位置
   useEffect(() => {
