@@ -977,10 +977,6 @@ export default function ReviewPanel() {
     return (
       <>
         <motion.div 
-          ref={sideScrollRef}
-          onWheel={handleWheel}
-          onTouchStart={handleTouchStart}
-          onTouchMove={handleTouchMove}
           className="fixed bottom-0 left-0 right-0 z-50 rounded-t-2xl shadow-[0_-6px_24px_rgba(0,0,0,0.12)] flex flex-col"
           style={{ height: `${bottomBarH}vh`, background: `linear-gradient(0deg, ${hexToRgba(toneColor, 0.38)}, #FAF9F6 60%)`, borderTop: `1px solid ${hexToRgba(toneColor, 0.5)}` }}
           initial={{ y: '100%' }}
@@ -1270,9 +1266,10 @@ export default function ReviewPanel() {
             <div className="mt-1.5 w-12 h-1 rounded-full bg-black/20" />
           </div>
           {/* 内容三栏：等高分栏，视觉整齐；各自滚到顶再上滑时收回下边栏 */}
-          <div className="flex flex-1 min-h-0 pt-2">
+          {/* 顶部 pt-6 让内容避开拖动手柄（h-6）并在首行前留出空行 */}
+          <div className="flex flex-1 min-h-0 pt-6">
             <div
-              className="w-[240px] flex-shrink-0 pt-4 pb-4 pl-4 pr-4 border-r border-black/5 overflow-y-auto"
+              className="w-[240px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto"
               onWheel={handleBarWheel}
               onTouchStart={handleBarTouchStart}
               onTouchMove={handleBarTouchMove}
@@ -1280,7 +1277,7 @@ export default function ReviewPanel() {
               <ScoreCard score={reviewData.score} radar={reviewData.radar} toneMetaphor={reviewData.toneMetaphor} fill />
             </div>
             <div
-              className="w-[280px] flex-shrink-0 pt-4 pb-4 pl-4 pr-4 border-r border-black/5 overflow-y-auto"
+              className="w-[280px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto"
               onWheel={handleBarWheel}
               onTouchStart={handleBarTouchStart}
               onTouchMove={handleBarTouchMove}
@@ -1288,7 +1285,7 @@ export default function ReviewPanel() {
               <AuthorsCard authors={reviewData.authors} fill />
             </div>
             <div
-              className="flex-1 min-w-0 pt-4 pb-4 pl-4 pr-4 overflow-y-auto"
+              className="flex-1 min-w-0 p-4 overflow-y-auto"
               onWheel={handleBarWheel}
               onTouchStart={handleBarTouchStart}
               onTouchMove={handleBarTouchMove}

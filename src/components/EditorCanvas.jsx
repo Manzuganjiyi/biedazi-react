@@ -20,7 +20,16 @@ export default function EditorCanvas() {
   const contTouchY = useRef(null)
   const upAccum = useRef(0)
   const downAccum = useRef(0)
+  const upStart = useRef(0)
+  const downStart = useRef(0)
   const [isEmpty, setIsEmpty] = useState(true)
+  const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
+
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768)
+    window.addEventListener('resize', check)
+    return () => window.removeEventListener('resize', check)
+  }, [])
 
   const activeArticle = articles.find(a => a.id === activeArticleId)
   const annotations = activeArticle?.review?.annotations || []
@@ -167,28 +176,41 @@ export default function EditorCanvas() {
     if (!el || !resultsVisible) return
     const nearTop = el.scrollTop <= 4
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30
+    const now = Date.now()
 
     if (!showContinuation) {
       // 右栏展开态：滚到顶后再向上滚 → 收起
       if (nearTop && e.deltaY < 0) {
-        upAccum.current += Math.abs(e.deltaY)
-        if (upAccum.current >= 60) {
+        if (!upStart.current || now - upStart.current > 400) {
+          upStart.current = now
           upAccum.current = 0
+        }
+        upAccum.current += Math.abs(e.deltaY)
+        if (upAccum.current >= 120) {
+          upAccum.current = 0
+          upStart.current = 0
           revealContinuation()
         }
       } else {
         upAccum.current = 0
+        upStart.current = 0
       }
     } else {
       // 纯编辑器态：滚到底后再向下滚 → 展开右栏
       if (nearBottom && e.deltaY > 0) {
-        downAccum.current += Math.abs(e.deltaY)
-        if (downAccum.current >= 60) {
+        if (!downStart.current || now - downStart.current > 400) {
+          downStart.current = now
           downAccum.current = 0
+        }
+        downAccum.current += Math.abs(e.deltaY)
+        if (downAccum.current >= 120) {
+          downAccum.current = 0
+          downStart.current = 0
           expandPanels()
         }
       } else {
         downAccum.current = 0
+        downStart.current = 0
       }
     }
   }, [showContinuation, resultsVisible, revealContinuation, expandPanels])
@@ -203,32 +225,45 @@ export default function EditorCanvas() {
     const dy = contTouchY.current - e.touches[0].clientY
     const nearTop = el.scrollTop <= 4
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30
+    const now = Date.now()
 
     if (!showContinuation) {
       // 右栏展开态：滚到顶后再向上滚（dy<0 向上滚动）→ 收起
       if (nearTop && dy < 0) {
-        upAccum.current += Math.abs(dy)
-        if (upAccum.current >= 60) {
+        if (!upStart.current || now - upStart.current > 400) {
+          upStart.current = now
           upAccum.current = 0
+        }
+        upAccum.current += Math.abs(dy)
+        if (upAccum.current >= 120) {
+          upAccum.current = 0
+          upStart.current = 0
           revealContinuation()
           contTouchY.current = null
           return
         }
       } else {
         upAccum.current = 0
+        upStart.current = 0
       }
     } else {
       // 纯编辑器态：滚到底后再向下滚（dy>0 向下滚动）→ 展开右栏
       if (nearBottom && dy > 0) {
-        downAccum.current += Math.abs(dy)
-        if (downAccum.current >= 60) {
+        if (!downStart.current || now - downStart.current > 400) {
+          downStart.current = now
           downAccum.current = 0
+        }
+        downAccum.current += Math.abs(dy)
+        if (downAccum.current >= 120) {
+          downAccum.current = 0
+          downStart.current = 0
           expandPanels()
           contTouchY.current = null
           return
         }
       } else {
         downAccum.current = 0
+        downStart.current = 0
       }
     }
     contTouchY.current = e.touches[0].clientY
@@ -248,8 +283,9 @@ export default function EditorCanvas() {
       style={{
         // 右侧批注栏一出现就让出右列空间（编辑器整体左移，不被遮挡）；
         // 下边栏升起时再同步压缩高度，两者配合形成"向左上"的留白；
-        // 切到续写模式后恢复满宽满高，仅剩编辑器
-        marginRight: isReviewing && !showContinuation ? 432 : 0,
+        // 切到续写模式后恢复满宽满高，仅剩编辑器；
+        // 移动端无右栏，编辑器始终满宽
+        marginRight: !isMobile && isReviewing && !showContinuation ? 432 : 0,
         height: showBottomBar && !showContinuation ? `calc(100% - ${bottomBarH}vh)` : '100%',
         transition: 'margin-right 0.5s cubic-bezier(0.22, 1, 0.36, 1), height 0.5s cubic-bezier(0.22, 1, 0.36, 1)',
       }}
