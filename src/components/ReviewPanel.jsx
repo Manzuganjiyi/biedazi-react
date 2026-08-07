@@ -203,7 +203,7 @@ function ThinkingProcess({ steps, activeIndex, progress }) {
               strokeLinecap="round" strokeDasharray="169.6"
               strokeDashoffset={169.6 * (1 - (progress || 0) / 100)}
               transform="rotate(-90 32 32)"
-              className="transition-all duration-300 ease-out"
+              className="transition-[stroke-dashoffset] duration-300 ease-out"
             />
           </svg>
           <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-editor-accent">
@@ -331,7 +331,7 @@ function AuthorsCard({ authors, fill }) {
 function AnnotationList({ annotations, onAnchorClick, reading }) {
   return (
     <motion.div
-      className={`p-4 mb-3 rounded-xl border transition-all duration-500
+      className={`p-4 mb-3 rounded-xl border transition-[background-color,border-color] duration-500
         ${reading ? 'bg-white/30 border-white/20 backdrop-blur-md' : 'bg-white/60 border-white/30 backdrop-blur-xl'}`}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
@@ -534,9 +534,11 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
             <div style={{ fontSize: 21, fontWeight: 600, color: ink, lineHeight: 1.4 }}>{article.title || '未命名篇章'}</div>
             <div style={{ fontSize: 12, color: sub, marginTop: 4 }}>作者：{article.author || '佚名'}</div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, paddingTop: 14 }}>
+          <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, paddingTop: 14 }}>
             <ShareQrCode />
-            <span style={{ fontSize: 9, color: sub, letterSpacing: 1, marginTop: 5 }}>扫码体验</span>
+            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: 9, color: sub, letterSpacing: 2, marginLeft: 6, lineHeight: 1.5 }}>
+              {'扫码体验'.split('').map((ch, i) => <span key={i}>{ch}</span>)}
+            </span>
           </div>
         </div>
 
@@ -741,10 +743,25 @@ export default function ReviewPanel() {
     }, 400)
   }
 
+  // 动态分包在重新部署后可能因旧 chunk 失效而加载失败（Failed to fetch dynamically imported module），
+  // 强制刷新一次拉取最新入口即可恢复；文章内容已持久化到 localStorage，刷新不丢数据
+  const loadHtml2canvas = async () => {
+    try {
+      const mod = await import('html2canvas')
+      return mod.default
+    } catch (e) {
+      if (!window.__html2canvasReloaded) {
+        window.__html2canvasReloaded = true
+        window.location.reload()
+      }
+      throw e
+    }
+  }
+
   const handleExportImage = async () => {
     if (!reviewData || !activeArticle) return
     try {
-      const html2canvas = (await import('html2canvas')).default
+      const html2canvas = await loadHtml2canvas()
       const node = shareCardRef.current
       if (!node) return
       const canvas = await html2canvas(node, {
@@ -1131,7 +1148,7 @@ export default function ReviewPanel() {
     <>
       {/* 右侧批注栏：浮动玻璃卡片。未升起下边栏时占满右列高度，不遮住编辑器全文；下边栏升起时上移腾位，编辑器同时向左上压缩；切到续写模式后滑出 */}
       <div
-        className={`fixed right-4 z-40 flex flex-col rounded-2xl overflow-hidden transition-all duration-500
+        className={`fixed right-4 z-40 flex flex-col rounded-2xl overflow-hidden transition-[transform,bottom] duration-500
           ${isReviewing && !isClosing && !showContinuation ? 'translate-x-0' : 'translate-x-full'}
         `}
         style={{
