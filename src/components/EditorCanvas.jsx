@@ -155,9 +155,10 @@ export default function EditorCanvas() {
   }, [activeArticleId, resultsVisible, annotations, showContinuation])
 
   // 与回退键一致的滚动切换：
-  // 滚动到底再向下滚 → 收起右栏/底栏，切到纯编辑器+续写视图（同 returnToEditor 的收起）
-  // 续写态滚动到底再向下滚 → 重新展开右栏（同 returnToEditor 的展开）
-  // 两方向都带累积缓冲，避免顺手一滚就误触
+  // 滚动到底再向下滚的 3 段式切换（带累积缓冲，避免顺手一滚就误触）：
+  //  1. 下边栏存在（右栏+下边栏）→ 先收起下边栏，回到仅右栏状态
+  //  2. 仅右栏 → 收起右栏，切到纯编辑器+续写视图（同 returnToEditor 的收起）
+  //  3. 续写态 → 重新展开右栏（同 returnToEditor 的展开）
   const revealContinuation = useCallback(() => {
     setShowContinuation(true)
     setShowBottomBar(false)
@@ -169,13 +170,19 @@ export default function EditorCanvas() {
     setContinuationDimmed(false)
   }, [setShowContinuation, setContinuationDimmed])
 
+  const transitionFromScroll = useCallback(() => {
+    if (showContinuation) expandPanels()
+    else if (showBottomBar) setShowBottomBar(false)
+    else revealContinuation()
+  }, [showContinuation, showBottomBar, expandPanels, revealContinuation, setShowBottomBar])
+
   const handleEditorWheel = useCallback((e) => {
     const el = scrollAreaRef.current
     if (!el || !resultsVisible) return
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30
     const now = Date.now()
 
-    // 只在"滚到底后再向下滚"时切换：面板展开态 → 进入续写；续写态 → 重新展开面板
+    // 只在"滚到底后再向下滚"时切换：下边栏 → 仅右栏 → 续写 → 仅右栏
     if (nearBottom && e.deltaY > 0) {
       if (!downStart.current || now - downStart.current > 400) {
         downStart.current = now
@@ -185,14 +192,13 @@ export default function EditorCanvas() {
       if (downAccum.current >= 120) {
         downAccum.current = 0
         downStart.current = 0
-        if (showContinuation) expandPanels()
-        else revealContinuation()
+        transitionFromScroll()
       }
     } else {
       downAccum.current = 0
       downStart.current = 0
     }
-  }, [showContinuation, resultsVisible, revealContinuation, expandPanels])
+  }, [resultsVisible, transitionFromScroll])
 
   const handleEditorTouchStart = useCallback((e) => {
     contTouchY.current = e.touches?.[0]?.clientY ?? null
@@ -205,7 +211,7 @@ export default function EditorCanvas() {
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30
     const now = Date.now()
 
-    // 只在"滚到底后再向下滚（dy>0）"时切换：面板展开态 → 进入续写；续写态 → 重新展开面板
+    // 只在"滚到底后再向下滚（dy>0）"时切换：下边栏 → 仅右栏 → 续写 → 仅右栏
     if (nearBottom && dy > 0) {
       if (!downStart.current || now - downStart.current > 400) {
         downStart.current = now
@@ -215,8 +221,7 @@ export default function EditorCanvas() {
       if (downAccum.current >= 120) {
         downAccum.current = 0
         downStart.current = 0
-        if (showContinuation) expandPanels()
-        else revealContinuation()
+        transitionFromScroll()
         contTouchY.current = null
         return
       }
@@ -225,7 +230,7 @@ export default function EditorCanvas() {
       downStart.current = 0
     }
     contTouchY.current = e.touches[0].clientY
-  }, [showContinuation, resultsVisible, revealContinuation, expandPanels])
+  }, [resultsVisible, transitionFromScroll])
 
   // 滚动触发（非淡色）切到续写模式后，把续写内容滚动到视野内；输入触发的淡色保留不抢光标位置
   useEffect(() => {
@@ -242,9 +247,11 @@ export default function EditorCanvas() {
         // 右侧批注栏一出现就让出右列空间（编辑器整体左移，不被遮挡）；
         // 下边栏升起时再同步压缩高度，两者配合形成"向左上"的留白；
         // 切到续写模式后恢复满宽满高，仅剩编辑器；
-        // 移动端无右栏，编辑器始终满宽
+        // 移动端无右栏，编辑器始终满宽；但移动端抽屉占底部 bottomBarH，编辑器同样压缩高度
         marginRight: !isMobile && isReviewing && !showContinuation ? 432 : 0,
-        height: showBottomBar && !showContinuation ? `calc(100% - ${bottomBarH}vh)` : '100%',
+        height: !showContinuation && (showBottomBar || (isMobile && isReviewing))
+          ? `calc(100% - ${bottomBarH}vh)`
+          : '100%',
         transition: 'margin-right 0.5s cubic-bezier(0.22, 1, 0.36, 1), height 0.5s cubic-bezier(0.22, 1, 0.36, 1)',
       }}
     >

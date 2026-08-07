@@ -67,6 +67,12 @@ function RadarChart({ data, size = 120 }) {
   const radius = size * 0.32
   const angleStep = (Math.PI * 2) / 5
 
+  // 标签文字必须落在 SVG 边界内，否则 html2canvas 导出时会被裁掉
+  const fontSize = size * 0.088
+  const halfFont = fontSize / 2
+  const maxLabelDist = size / 2 - halfFont - 2
+  const labelOffset = Math.max(4, Math.min(radius * 0.34 + 8, maxLabelDist - radius))
+
   const points = values.map((v, i) => {
     const angle = i * angleStep - Math.PI / 2
     const r = (v / maxVal) * radius
@@ -82,7 +88,6 @@ function RadarChart({ data, size = 120 }) {
   })
 
   // 外圈标签只显示维度名，不显示分数
-  const labelOffset = radius * 0.34 + 8
   const labelPos = values.map((_, i) => {
     const angle = i * angleStep - Math.PI / 2
     return {
@@ -423,11 +428,11 @@ function SummaryCard({ review, fill }) {
         {hasStructured ? (
           flowSegments.map((seg, j) => (
             <div key={j} className={`whitespace-pre-line ${j > 0 ? 'mt-3' : ''}`}>
-              {seg}
+              {j === 0 ? `\n${seg}` : seg}
             </div>
           ))
         ) : (
-          <div className="whitespace-pre-line">{review?.summary}</div>
+          <div className="whitespace-pre-line">{`\n${review?.summary || ''}`}</div>
         )}
       </div>
       {review?.emotionalClosing && (
@@ -509,7 +514,7 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
               <RadarChart data={review.radar} size={92} />
               <div style={{ flex: 1, minWidth: 0 }}>
                 {bestQuote && (
-                  <div style={{ fontSize: 11, color: ink, fontStyle: 'italic', lineHeight: 1.7, marginBottom: 8, borderLeft: `2px solid ${accent}`, paddingLeft: 10 }}>
+                  <div style={{ fontSize: 10, color: ink, fontStyle: 'italic', lineHeight: 1.7, marginBottom: 8, borderLeft: `2px solid ${accent}`, paddingLeft: 10 }}>
                     {bestQuote}
                   </div>
                 )}
@@ -1266,8 +1271,8 @@ export default function ReviewPanel() {
             <div className="mt-1.5 w-12 h-1 rounded-full bg-black/20" />
           </div>
           {/* 内容三栏：等高分栏，视觉整齐；各自滚到顶再上滑时收回下边栏 */}
-          {/* 顶部 pt-6 避开拖动手柄（h-6），再加一个空行高度让首行内容前有明显的留白 */}
-          <div className="flex flex-1 min-h-0 pt-12">
+          {/* 顶部 pt-6 避开拖动手柄（h-6），首行空行由总评内容自身实现 */}
+          <div className="flex flex-1 min-h-0 pt-6">
             <div
               className="w-[240px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto"
               onWheel={handleBarWheel}
