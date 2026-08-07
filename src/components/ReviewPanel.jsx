@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useWriterStore } from '../store/useWriterStore'
 import { motion, AnimatePresence } from 'framer-motion'
-import { ArrowLeft, Download, Check, AlertCircle, X, Scan, BookOpen, Users, MessageSquare, PenLine, Sparkles } from 'lucide-react'
+import { ArrowLeft, Share2, Check, AlertCircle, X, Scan, BookOpen, Users, MessageSquare, PenLine, Sparkles } from 'lucide-react'
 import { analyzeTextAPI, TONE_COLORS } from '../data/mockReviews'
 
 const hexToRgba = (hex, alpha = 0.55) => {
@@ -751,57 +751,37 @@ export default function ReviewPanel() {
     }
   }
 
-  // 导出 PDF：将 9:16 审稿卡片渲染为图像后嵌入 PDF（保证中文显示）
-  const handleExportPDF = async () => {
-    if (!reviewData || !activeArticle) return
+  // 分享图片：将 9:16 审稿卡片调起系统分享面板（微信/QQ/存相册等）；不支持则降级为下载
+  const handleShareImage = async () => {
+    if (!reviewData || !activeArticle || !shareImage) return
     try {
-      const [jsPDFModule, html2canvasModule] = await Promise.all([
-        import('jspdf'),
-        import('html2canvas'),
-      ])
-      const { jsPDF } = jsPDFModule
-      const html2canvas = html2canvasModule.default
-      const node = shareCardRef.current
-      if (!node) return
-      const canvas = await html2canvas(node, {
-        backgroundColor: null,
-        scale: 2,
-        useCORS: true,
-        logging: false,
-        onclone: (doc) => {
-          const style = doc.createElement('style')
-          style.textContent = `
-            *, *::before, *::after {
-              -webkit-backdrop-filter: none !important;
-              backdrop-filter: none !important;
-            }
-            html, body, #root, #root > div {
-              overflow: visible !important;
-              height: auto !important;
-            }
-          `
-          doc.head.appendChild(style)
-          const root = doc.getElementById('share-card-root')
-          if (root) {
-            root.style.position = 'absolute'
-            root.style.left = '0'
-            root.style.top = '0'
-            root.style.zIndex = '0'
-            root.style.overflow = 'visible'
-          }
-        },
-      })
-      const img = canvas.toDataURL('image/png')
-      const doc = new jsPDF({
-        orientation: 'portrait',
-        unit: 'px',
-        format: [canvas.width / 2, canvas.height / 2],
-      })
-      doc.addImage(img, 'PNG', 0, 0, canvas.width / 2, canvas.height / 2)
-      doc.save(`${activeArticle.title || '笔搭子'}_文本解读.pdf`)
+      const blob = await (await fetch(shareImage)).blob()
+      const fileName = `${activeArticle.title || '笔搭子'}_锐评.png`
+      const file = new File([blob], fileName, { type: 'image/png' })
+      // 分享文案优先用升华句，其次调性隐喻，最后退回标题
+      const shareText = reviewData.emotionalClosing
+        || reviewData.toneMetaphor
+        || `${activeArticle.title || '我的文章'} · 文本解读`
+      const shareData = { title: activeArticle.title || '笔搭子', text: shareText, files: [file] }
+      const canShareFiles = typeof navigator.share === 'function' && navigator.canShare && navigator.canShare({ files: [file] })
+      if (canShareFiles) {
+        await navigator.share(shareData)
+      } else if (typeof navigator.share === 'function') {
+        await navigator.share({ title: shareData.title, text: shareText })
+      } else {
+        // 不支持系统分享：降级为下载
+        const a = document.createElement('a')
+        a.href = shareImage
+        a.download = fileName
+        document.body.appendChild(a)
+        a.click()
+        a.remove()
+        alert('当前浏览器不支持系统分享，已改为下载图片')
+      }
     } catch (e) {
-      console.error('导出 PDF 失败:', e)
-      alert(`导出 PDF 失败：${(e && e.message) || e}`)
+      if (e && e.name === 'AbortError') return // 用户取消分享，静默处理
+      console.error('分享失败:', e)
+      alert(`分享失败：${(e && e.message) || e}`)
     }
   }
 
@@ -1054,9 +1034,9 @@ export default function ReviewPanel() {
                   <SummaryCard review={reviewData} />
                   <button 
                     className="w-full py-2.5 rounded-lg bg-editor-accent text-white text-sm flex items-center justify-center gap-2"
-                    onClick={handleExportPDF}
+                    onClick={handleExportImage}
                   >
-                    <Download size={14} /> 导出 PDF
+                    <Share2 size={14} /> 分享解读
                   </button>
                 </>
               ) : null}
@@ -1082,7 +1062,7 @@ export default function ReviewPanel() {
               <div className="text-sm font-medium mb-3 text-center">点评分享图片（9:16）</div>
               <img src={shareImage} alt="点评分享" className="w-full rounded-lg border border-black/10" />
               <div className="text-[10px] text-editor-secondary text-center mt-2">
-                手机端长按图片可保存转发
+                点「分享」发送给好友，或长按图片保存
               </div>
               <div className="flex gap-2 mt-3">
                 <button
@@ -1091,10 +1071,16 @@ export default function ReviewPanel() {
                 >
                   关闭
                 </button>
+                <button
+                  onClick={handleShareImage}
+                  className="flex-1 py-2 rounded-lg bg-editor-accent text-white text-sm"
+                >
+                  分享
+                </button>
                 <a
                   href={shareImage}
                   download={`${activeArticle?.title || '笔搭子'}_锐评.png`}
-                  className="flex-1 py-2 rounded-lg bg-editor-accent text-white text-sm text-center"
+                  className="flex-1 py-2 rounded-lg bg-black/5 text-sm text-center"
                 >
                   下载图片
                 </a>
@@ -1195,9 +1181,9 @@ export default function ReviewPanel() {
             initial={{ opacity: 0 }}
             animate={{ opacity: showResults ? 1 : 0 }}
             transition={{ delay: 0.2 }}
-            onClick={handleExportPDF}
+            onClick={handleExportImage}
           >
-            <Download size={12} /> 导出 PDF
+            <Share2 size={12} /> 分享解读
           </motion.button>
 
           <AnimatePresence mode="wait">
@@ -1320,7 +1306,7 @@ export default function ReviewPanel() {
             <div className="text-sm font-medium mb-3 text-center">点评分享图片（9:16）</div>
             <img src={shareImage} alt="点评分享" className="w-full rounded-lg border border-black/10" />
             <div className="text-[10px] text-editor-secondary text-center mt-2">
-              手机端长按图片可保存转发
+              点「分享」发送给好友，或长按图片保存
             </div>
             <div className="flex gap-2 mt-3">
               <button
@@ -1329,10 +1315,16 @@ export default function ReviewPanel() {
               >
                 关闭
               </button>
+              <button
+                onClick={handleShareImage}
+                className="flex-1 py-2 rounded-lg bg-editor-accent text-white text-sm"
+              >
+                分享
+              </button>
               <a
                 href={shareImage}
                 download={`${activeArticle?.title || '笔搭子'}_锐评.png`}
-                className="flex-1 py-2 rounded-lg bg-editor-accent text-white text-sm text-center"
+                className="flex-1 py-2 rounded-lg bg-black/5 text-sm text-center"
               >
                 下载图片
               </a>
