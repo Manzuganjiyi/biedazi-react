@@ -3,6 +3,7 @@ import { useWriterStore } from '../store/useWriterStore'
 import { motion, AnimatePresence } from 'framer-motion'
 import { ArrowLeft, Share2, Check, AlertCircle, X, Scan, BookOpen, Users, MessageSquare, PenLine, Sparkles } from 'lucide-react'
 import { analyzeTextAPI, TONE_COLORS } from '../data/mockReviews'
+import QRCode from 'qrcode'
 
 const hexToRgba = (hex, alpha = 0.55) => {
   const m = /^#([0-9a-fA-F]{6})$/.exec(hex || '')
@@ -455,6 +456,39 @@ function SummaryCard({ review, fill }) {
 }
 
 // ==================== 9:16 分享卡片（导出图片用）====================
+// 右上角二维码：指向官网 www.bidazi.cloud，仅绘制墨色码点于透明底，直接融入卡片底色
+const SHARE_URL = 'https://www.bidazi.cloud'
+
+function ShareQrCode({ size = 44 }) {
+  const [dataUrl, setDataUrl] = useState('')
+  useEffect(() => {
+    let cancelled = false
+    try {
+      const qr = QRCode.create(SHARE_URL, { errorCorrectionLevel: 'M' })
+      const n = qr.modules.size
+      const quiet = 2 // 静区模块数（透明），保证扫码可靠
+      const scale = Math.max(1, Math.ceil((size * 4) / (n + quiet * 2)))
+      const canvas = document.createElement('canvas')
+      canvas.width = (n + quiet * 2) * scale
+      canvas.height = (n + quiet * 2) * scale
+      const ctx = canvas.getContext('2d')
+      ctx.fillStyle = '#2C2C2C'
+      for (let r = 0; r < n; r++) {
+        for (let c = 0; c < n; c++) {
+          if (qr.modules.get(r, c)) ctx.fillRect((c + quiet) * scale, (r + quiet) * scale, scale, scale)
+        }
+      }
+      const url = canvas.toDataURL('image/png')
+      if (!cancelled) setDataUrl(url)
+    } catch {
+      // 生成失败时静默占位，不影响分享卡布局
+    }
+    return () => { cancelled = true }
+  }, [size])
+  if (!dataUrl) return <div style={{ width: size, height: size }} />
+  return <img src={dataUrl} alt="扫码进入笔搭子" style={{ width: size, height: size, display: 'block' }} />
+}
+
 const ShareCard = React.forwardRef(function ShareCard({ review, article, color }, ref) {
   // 总评以自然段落呈现，无小标题
   const flowSegments = [
@@ -494,16 +528,16 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
           background: `linear-gradient(165deg, ${hexToRgba(color, 0.4)}, #FAF9F6 62%)`,
         }}
       >
-        {/* 顶部品牌 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 18 }}>
-          <span style={{ width: 14, height: 14, borderRadius: 3, background: accent, display: 'inline-block' }} />
-          <span style={{ fontSize: 12, letterSpacing: 2, color: sub }}>笔搭子 · 文本解读</span>
-        </div>
-
-        {/* 标题与作者 */}
-        <div style={{ marginBottom: 16 }}>
-          <div style={{ fontSize: 21, fontWeight: 600, color: ink, lineHeight: 1.4 }}>{article.title || '未命名篇章'}</div>
-          <div style={{ fontSize: 12, color: sub, marginTop: 4 }}>作者：{article.author || '佚名'}</div>
+        {/* 标题与作者：右侧并列官网二维码（上沿略低于标题区，透明底融入卡片） */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+          <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
+            <div style={{ fontSize: 21, fontWeight: 600, color: ink, lineHeight: 1.4 }}>{article.title || '未命名篇章'}</div>
+            <div style={{ fontSize: 12, color: sub, marginTop: 4 }}>作者：{article.author || '佚名'}</div>
+          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flexShrink: 0, paddingTop: 14 }}>
+            <ShareQrCode />
+            <span style={{ fontSize: 9, color: sub, letterSpacing: 1, marginTop: 5 }}>扫码体验</span>
+          </div>
         </div>
 
         {/* 评分：雷达图居中并稍微缩小（防止标签文字被裁），右侧呈现文中最出彩的句子与调性比喻 */}
@@ -977,7 +1011,7 @@ export default function ReviewPanel() {
           >
             <div className="w-10 h-1 rounded-full bg-black/15 mx-auto" style={{ position: 'absolute', left: '50%', transform: 'translateX(-50%)', top: 8 }} />
             <span className="text-xs text-editor-secondary pl-1">
-              {isThinking && !showResults && !error ? 'AI 解读中' : '锐评结果'}
+              {isThinking && !showResults && !error ? 'AI 解读中' : '解读报告'}
             </span>
             <button
               className="w-8 h-8 flex items-center justify-center rounded-full bg-black/5 flex-shrink-0"
