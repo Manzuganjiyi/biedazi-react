@@ -11,6 +11,9 @@ const hexToRgba = (hex, alpha = 0.55) => {
   return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`
 }
 
+// 统一的强 ease-out 曲线（进入/退出类动画），避免散落的默认缓动
+const EASE_OUT = [0.23, 1, 0.32, 1]
+
 // 将批注按句拆分成分段，避免文本臃肿（最多 3 段）
 const splitComment = (text, maxSeg = 3) => {
   const raw = String(text || '').trim()
@@ -149,7 +152,7 @@ function ScoreCard({ score, radar, fill, toneMetaphor }) {
       className={`glass-card p-4 flex flex-col ${fill ? 'h-full' : 'mb-3'}`}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
+      transition={{ duration: 0.4, ease: EASE_OUT }}
     >
       <div className={`flex flex-col items-center justify-center gap-2.5 ${fill ? 'flex-1' : ''}`}>
         <RadarChart data={radar} size={fill ? 150 : 120} />
@@ -168,7 +171,7 @@ function ThinkingProcess({ steps, activeIndex, progress }) {
       className="glass-card p-5 mb-4 overflow-hidden relative"
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
+      transition={{ duration: 0.4, ease: EASE_OUT }}
     >
       {/* 顶部雷达扫视 + 环形进度 */}
       <div className="relative h-24 mb-4 flex items-center justify-center">
@@ -297,7 +300,7 @@ function AuthorsCard({ authors, fill }) {
       className={`glass-card p-4 flex flex-col ${fill ? 'h-full' : 'mb-3'}`}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
+      transition={{ duration: 0.4, ease: EASE_OUT }}
     >
       {list.map((author, i) => (
         <div 
@@ -321,12 +324,12 @@ function AuthorsCard({ authors, fill }) {
 // ==================== 批注列表（带锚定功能 + 分段呈现）====================
 function AnnotationList({ annotations, onAnchorClick, reading }) {
   return (
-    <motion.div 
+    <motion.div
       className={`p-4 mb-3 rounded-xl border transition-all duration-500
         ${reading ? 'bg-white/30 border-white/20 backdrop-blur-md' : 'bg-white/60 border-white/30 backdrop-blur-xl'}`}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: 0.15 }}
+      transition={{ duration: 0.4, delay: 0.15, ease: EASE_OUT }}
     >
       <div className="text-xs font-medium text-editor-secondary mb-2.5">
         原文批注 <span className="text-editor-secondary/50">({annotations.length} 条)</span>
@@ -341,7 +344,7 @@ function AnnotationList({ annotations, onAnchorClick, reading }) {
             title="点击跳转到原文位置"
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.18, duration: 0.4 }}
+            transition={{ delay: i * 0.08, duration: 0.35, ease: EASE_OUT }}
           >
             <div className="text-xs text-editor-secondary italic mb-2 pl-2 border-l-2 border-editor-border leading-relaxed">
               {anno.quote}
@@ -414,7 +417,7 @@ function SummaryCard({ review, fill }) {
       className={`glass-card p-4 flex flex-col ${fill ? 'h-full' : 'mb-3'}`}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4, delay: 0.3 }}
+      transition={{ duration: 0.4, delay: 0.3, ease: EASE_OUT }}
     >
       <div ref={contentRef} onScroll={handleScroll} className={`text-[13px] text-editor-text leading-relaxed ${fill ? 'flex-1 overflow-y-auto' : ''}`}>
         {hasStructured ? (
@@ -498,32 +501,27 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
           <div style={{ fontSize: 12, color: sub, marginTop: 4 }}>作者：{article.author || '佚名'}</div>
         </div>
 
-        {/* 评分：雷达图放左侧，右侧逐项列出五个维度得分，避免图过大导致标签字被裁 */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.7)' }}>
-          <RadarChart data={review.radar} size={96} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 11, color: sub, marginBottom: 6, letterSpacing: 1 }}>五个维度</div>
-            {Object.keys(review.radar || {}).map((k) => {
-              const labelMap = { language: '语言', structure: '结构', imagery: '意象', emotion: '情感', innovation: '创新' }
-              const label = labelMap[k] || k
-              const value = review.radar[k] ?? 0
-              return (
-                <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span style={{ width: 34, fontSize: 12, color: ink }}>{label}</span>
-                  <div style={{ flex: 1, height: 5, borderRadius: 3, background: 'rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-                    <div style={{ width: `${Math.max(4, Math.min(100, value))}%`, height: '100%', borderRadius: 3, background: accent }} />
+        {/* 评分：雷达图居中并稍微缩小（防止标签文字被裁），右侧呈现文中最出彩的句子与调性比喻 */}
+        {(() => {
+          const bestQuote = review.annotations?.[0]?.quote || ''
+          return (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.7)' }}>
+              <RadarChart data={review.radar} size={92} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                {bestQuote && (
+                  <div style={{ fontSize: 12, color: ink, fontStyle: 'italic', lineHeight: 1.7, marginBottom: 8, borderLeft: `2px solid ${accent}`, paddingLeft: 10 }}>
+                    {bestQuote}
                   </div>
-                  <span style={{ width: 26, fontSize: 12, fontWeight: 600, color: ink, textAlign: 'right' }}>{value}</span>
-                </div>
-              )
-            })}
-          </div>
-        </div>
-        {review.toneMetaphor && (
-          <div style={{ fontSize: 14, fontStyle: 'italic', color: accent, lineHeight: 1.5, textAlign: 'center', marginBottom: 16 }}>
-            {review.toneMetaphor}
-          </div>
-        )}
+                )}
+                {review.toneMetaphor && (
+                  <div style={{ fontSize: 13, color: accent, fontStyle: 'italic', letterSpacing: '0.04em' }}>
+                    {review.toneMetaphor}
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })()}
 
         {/* 相似作家（液体圆球表示占比） */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -809,20 +807,33 @@ export default function ReviewPanel() {
   }
 
   // 下边栏自身滚到顶后再向上滚动 → 收回下边栏，回到右侧批注。
-  // 为总评区留出向上缓冲空间：只有在滚动条已到顶且累积向上滚动超过阈值时才收回，
-  // 避免刚进总评区、内容一滚就被立刻收起
+  // 为总评区留出向上缓冲空间：总评内容在内部滚动容器里滚动，
+  // 只有当"当前光标处真正可滚动的元素"已经滚到顶（向上没有更多内容可看），
+  // 且累积向上滚动超过阈值时才收回，避免刚进总评区、内容一滚就被立刻收起
   const barUpAccum = useRef(0)
+
+  // 从事件目标向上找到真正发生滚动的元素（总评/作者/评级各自的内层滚动容器）
+  const findScrollable = (node) => {
+    let el = node
+    while (el && el !== document.body) {
+      if (el.scrollHeight - el.clientHeight > 1) return el
+      el = el.parentElement
+    }
+    return null
+  }
+
   const handleBarWheel = (e) => {
-    const el = e.currentTarget
-    if (!showBottomBar || !el) return
-    if (el.scrollTop <= 4 && e.deltaY < 0) {
+    if (!showBottomBar) return
+    const scroller = findScrollable(e.target)
+    const atTop = !scroller || scroller.scrollTop <= 4
+    if (atTop && e.deltaY < 0) {
       barUpAccum.current += Math.abs(e.deltaY)
       if (barUpAccum.current >= 60) {
         barUpAccum.current = 0
         setShowBottomBar(false)
       }
     } else {
-      // 滚动条不在顶部，先让内容自己往上滚，不参与收回
+      // 下面还有内容可往上滚，或正在往下滚：先让内容自己滚动，不参与收回
       barUpAccum.current = 0
     }
   }
@@ -831,11 +842,12 @@ export default function ReviewPanel() {
     barTouchY.current = e.touches?.[0]?.clientY ?? null
   }
   const handleBarTouchMove = (e) => {
-    const el = e.currentTarget
-    if (!el || barTouchY.current == null || !showBottomBar) return
+    if (barTouchY.current == null || !showBottomBar) return
     const dy = barTouchY.current - e.touches[0].clientY
     barTouchY.current = e.touches[0].clientY
-    if (dy < 0 && el.scrollTop <= 4) {
+    const scroller = findScrollable(e.target)
+    const atTop = !scroller || scroller.scrollTop <= 4
+    if (atTop && dy < 0) {
       barUpAccum.current += Math.abs(dy)
       if (barUpAccum.current >= 60) {
         barUpAccum.current = 0
@@ -1155,7 +1167,7 @@ export default function ReviewPanel() {
             initial={{ opacity: 0, y: 64 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 64 }}
-            transition={{ duration: 0.5 }}
+            transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
           >
           {/* 与右侧批注栏协调的色调描边：从右往左由深到浅，错落呼应 */}
           <div className="absolute inset-x-0 top-0 h-1 pointer-events-none" style={{ background: `linear-gradient(to left, ${hexToRgba(toneColor, 0.85)}, transparent 70%)` }} />

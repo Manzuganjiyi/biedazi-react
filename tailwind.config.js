@@ -31,8 +31,8 @@ export default {
         'spin-slow': 'spin 1s linear infinite',
         'paint-right': 'paintRight 1.6s cubic-bezier(0.4, 0, 0.2, 1) forwards',
         'paint-bottom': 'paintBottom 1.6s cubic-bezier(0.4, 0, 0.2, 1) forwards',
-        'paint-right-rev': 'paintRightRev 0.5s ease-in forwards',
-        'paint-bottom-rev': 'paintBottomRev 0.5s ease-in forwards',
+        'paint-right-rev': 'paintRightRev 0.5s ease-out forwards',
+        'paint-bottom-rev': 'paintBottomRev 0.5s ease-out forwards',
         'shimmer': 'shimmer 1.2s ease-out forwards',
       },
       keyframes: {

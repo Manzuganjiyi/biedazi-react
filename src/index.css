@@ -109,8 +109,8 @@ mark.anno-mark {
   border-radius: 2px;
   padding: 0 1px;
   color: inherit;
-  animation: annoAppear 0.5s ease forwards;
-  animation-delay: calc(var(--i, 0) * 0.18s);
+  animation: annoAppear 0.4s ease-out forwards;
+  animation-delay: calc(var(--i, 0) * 0.06s);
   opacity: 0;
 }
 
@@ -135,4 +135,24 @@ mark.anno-mark .anno-badge {
 @keyframes annoAppear {
   from { opacity: 0; background: rgba(139, 115, 85, 0.6); }
   to { opacity: 1; }
+}
+
+/* 尊重系统的"减弱动态效果"设置：保留透明度/颜色过渡，去掉位移与循环类动作 */
+@media (prefers-reduced-motion: reduce) {
+  .animate-editor-scan,
+  .animate-paint-right,
+  .animate-paint-bottom,
+  .animate-paint-right-rev,
+  .animate-paint-bottom-rev,
+  .animate-shimmer {
+    animation: none !important;
+    opacity: 1 !important;
+  }
+  .animate-ping {
+    animation: none !important;
+  }
+  .anno-mark {
+    animation: none !important;
+    opacity: 1 !important;
+  }
 }

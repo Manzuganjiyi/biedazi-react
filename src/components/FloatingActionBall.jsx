@@ -36,12 +36,17 @@ export default function FloatingActionBall() {
   // 移动端底部抽屉自带关闭按钮，审稿期间隐藏悬浮球，避免遮挡
   if (isMobile && isReviewing) return null
 
+  // 下边栏升起时把球"顶上去"：用 transform 位移代替动画 bottom，避免 layout 抖动
+  const liftPx = showBottomBar ? window.innerHeight * (bottomBarH / 100) + 28 - 32 : 0
+
   return (
     <motion.button
       className={`fixed z-50 w-16 h-16 rounded-full bg-editor-accent text-white 
                  flex items-center justify-center shadow-lg cursor-pointer
-                 disabled:opacity-60 disabled:cursor-not-allowed transition-all duration-500`}
-      style={{ right: 32, bottom: showBottomBar ? `calc(${bottomBarH}vh + 28px)` : 32 }}
+                 disabled:opacity-60 disabled:cursor-not-allowed`}
+      style={{ right: 32, bottom: 32 }}
+      animate={{ y: -liftPx }}
+      transition={{ type: 'spring', stiffness: 300, damping: 30 }}
       whileHover={{ scale: 1.1 }}
       whileTap={{ scale: 0.95 }}
       onHoverStart={() => setIsHovered(true)}
