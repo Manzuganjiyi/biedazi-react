@@ -162,6 +162,16 @@ export const useWriterStore = create(
           toneColor: TONE_COLORS.default,
         })
       },
+
+      // 评价完成后悬浮球点击：不是关闭点评，而是返回上一个页面状态——
+      // 收起右栏与下边栏、回到纯编辑器视角；再次点击可重新展开点评结果
+      returnToEditor: () => {
+        const { showContinuation, setShowContinuation, setShowBottomBar, setContinuationDimmed } = get()
+        const next = !showContinuation
+        setShowContinuation(next)
+        setShowBottomBar(false)
+        if (next) setContinuationDimmed(false)
+      },
     }),
     {
       name: 'biedazi-writer-store',

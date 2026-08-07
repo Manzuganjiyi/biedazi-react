@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import { useWriterStore } from '../store/useWriterStore'
-import { Feather, Loader2, Check, X } from 'lucide-react'
+import { Feather, Loader2, ArrowLeft } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 export default function FloatingActionBall() {
-  const { isReviewing, isThinking, triggerReview, requestPanelClose, showBottomBar, bottomBarH } = useWriterStore()
+  const { isReviewing, isThinking, triggerReview, returnToEditor, showBottomBar, bottomBarH, showContinuation } = useWriterStore()
   const [isHovered, setIsHovered] = useState(false)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
 
@@ -18,8 +18,8 @@ export default function FloatingActionBall() {
 
   const handleClick = () => {
     if (isReviewing) {
-      // 评价完成后再次点击 → 回到最初的编辑器视角
-      if (!isThinking) requestPanelClose()
+      // 评价完成后再次点击 → 收起右栏与下边栏，返回上一页面状态（编辑器视角）
+      if (!isThinking) returnToEditor()
       return
     }
     triggerReview()
@@ -27,11 +27,11 @@ export default function FloatingActionBall() {
 
   const getIcon = () => {
     if (isThinking) return <Loader2 className="w-6 h-6 animate-spin" />
-    if (isDone) return <X className="w-6 h-6" />
+    if (isDone) return <ArrowLeft className="w-6 h-6" />
     return <Feather className="w-6 h-6" />
   }
 
-  const tooltipText = isDone ? '返回编辑' : 'AI 锐评'
+  const tooltipText = isDone ? (showContinuation ? '展开点评' : '返回编辑') : 'AI 锐评'
 
   // 移动端底部抽屉自带关闭按钮，审稿期间隐藏悬浮球，避免遮挡
   if (isMobile && isReviewing) return null

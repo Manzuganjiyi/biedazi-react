@@ -251,7 +251,7 @@ export default function EditorCanvas() {
           {showContinuation && activeArticle?.review?.continuation && (
             <div
               ref={contRef}
-              className={`mt-8 pt-6 border-t border-editor-border/50 transition-opacity duration-500 ${continuationDimmed ? 'opacity-35' : ''}`}
+              className={`mt-8 pt-6 border-t border-editor-border/50 transition-opacity duration-500 ${continuationDimmed ? 'opacity-60' : ''}`}
             >
               <div className="flex items-center gap-2 mb-4 text-xs text-editor-secondary/70 tracking-widest">
                 <span className="w-1 h-1 rounded-full bg-editor-accent/60" />

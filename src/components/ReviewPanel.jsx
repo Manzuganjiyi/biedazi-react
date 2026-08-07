@@ -498,15 +498,32 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
           <div style={{ fontSize: 12, color: sub, marginTop: 4 }}>作者：{article.author || '佚名'}</div>
         </div>
 
-        {/* 评分：五星（五边形）评级图 + 调性比喻，居中排列避免右侧留白 */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.7)' }}>
-          <RadarChart data={review.radar} size={110} />
-          {review.toneMetaphor && (
-            <div style={{ fontSize: 14, fontStyle: 'italic', color: accent, lineHeight: 1.5 }}>
-              {review.toneMetaphor}
-            </div>
-          )}
+        {/* 评分：雷达图放左侧，右侧逐项列出五个维度得分，避免图过大导致标签字被裁 */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 14, marginBottom: 16, padding: '12px 16px', borderRadius: 10, background: 'rgba(255,255,255,0.7)' }}>
+          <RadarChart data={review.radar} size={96} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 11, color: sub, marginBottom: 6, letterSpacing: 1 }}>五个维度</div>
+            {Object.keys(review.radar || {}).map((k) => {
+              const labelMap = { language: '语言', structure: '结构', imagery: '意象', emotion: '情感', innovation: '创新' }
+              const label = labelMap[k] || k
+              const value = review.radar[k] ?? 0
+              return (
+                <div key={k} style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                  <span style={{ width: 34, fontSize: 12, color: ink }}>{label}</span>
+                  <div style={{ flex: 1, height: 5, borderRadius: 3, background: 'rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+                    <div style={{ width: `${Math.max(4, Math.min(100, value))}%`, height: '100%', borderRadius: 3, background: accent }} />
+                  </div>
+                  <span style={{ width: 26, fontSize: 12, fontWeight: 600, color: ink, textAlign: 'right' }}>{value}</span>
+                </div>
+              )
+            })}
+          </div>
         </div>
+        {review.toneMetaphor && (
+          <div style={{ fontSize: 14, fontStyle: 'italic', color: accent, lineHeight: 1.5, textAlign: 'center', marginBottom: 16 }}>
+            {review.toneMetaphor}
+          </div>
+        )}
 
         {/* 相似作家（液体圆球表示占比） */}
         <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
@@ -791,11 +808,23 @@ export default function ReviewPanel() {
     touchStartY.current = e.touches[0].clientY
   }
 
-  // 下边栏自身滚到顶后再向上滚动 → 收回下边栏，回到右侧批注
+  // 下边栏自身滚到顶后再向上滚动 → 收回下边栏，回到右侧批注。
+  // 为总评区留出向上缓冲空间：只有在滚动条已到顶且累积向上滚动超过阈值时才收回，
+  // 避免刚进总评区、内容一滚就被立刻收起
+  const barUpAccum = useRef(0)
   const handleBarWheel = (e) => {
     const el = e.currentTarget
     if (!showBottomBar || !el) return
-    if (el.scrollTop <= 4 && e.deltaY < 0) setShowBottomBar(false)
+    if (el.scrollTop <= 4 && e.deltaY < 0) {
+      barUpAccum.current += Math.abs(e.deltaY)
+      if (barUpAccum.current >= 60) {
+        barUpAccum.current = 0
+        setShowBottomBar(false)
+      }
+    } else {
+      // 滚动条不在顶部，先让内容自己往上滚，不参与收回
+      barUpAccum.current = 0
+    }
   }
   const barTouchY = useRef(null)
   const handleBarTouchStart = (e) => {
@@ -806,7 +835,15 @@ export default function ReviewPanel() {
     if (!el || barTouchY.current == null || !showBottomBar) return
     const dy = barTouchY.current - e.touches[0].clientY
     barTouchY.current = e.touches[0].clientY
-    if (dy < 0 && el.scrollTop <= 4) setShowBottomBar(false)
+    if (dy < 0 && el.scrollTop <= 4) {
+      barUpAccum.current += Math.abs(dy)
+      if (barUpAccum.current >= 60) {
+        barUpAccum.current = 0
+        setShowBottomBar(false)
+      }
+    } else {
+      barUpAccum.current = 0
+    }
   }
 
   // 下边栏高度拖动：按住顶部抓手上下拖动，自由调整高度

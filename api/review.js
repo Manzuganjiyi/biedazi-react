@@ -151,30 +151,44 @@ function computeRadar(text) {
 }
 
 // ==================== 名著识别（服务端兜底，保证经典名篇不被误判低分 / 强批）====================
+// 正文指纹 → 所属作家（用于把作者强制列为最相似作家）
 const MASTERPIECE_FINGERPRINTS = [
-  '我与父亲不相见已二年余了', // 朱自清《背影》
-  '这几天心里颇不宁静', // 朱自清《荷塘月色》
-  '盼望着，盼望着，东风来了', // 朱自清《春》
-  '时候既然是深冬', // 鲁迅《故乡》
-  '在我的后园，可以看见墙外有两株树', // 鲁迅《秋夜》
-  '北国的秋，却特别地来得清', // 郁达夫《故都的秋》
-  '对于一个在北平住惯的人', // 老舍《济南的冬天》
-  '那是力争上游的一种树', // 茅盾《白杨礼赞》
+  { text: '我与父亲不相见已二年余了', writer: '朱自清' }, // 《背影》
+  { text: '这几天心里颇不宁静', writer: '朱自清' }, // 《荷塘月色》
+  { text: '盼望着，盼望着，东风来了', writer: '朱自清' }, // 《春》
+  { text: '时候既然是深冬', writer: '鲁迅' }, // 《故乡》
+  { text: '在我的后园，可以看见墙外有两株树', writer: '鲁迅' }, // 《秋夜》
+  { text: '北国的秋，却特别地来得清', writer: '郁达夫' }, // 《故都的秋》
+  { text: '对于一个在北平住惯的人', writer: '老舍' }, // 《济南的冬天》
+  { text: '那是力争上游的一种树', writer: '茅盾' }, // 《白杨礼赞》
 ]
 
+// 识别结果：detected 是否命中共识名篇；writer 若可确定（作者名/标题/指纹对应），则为该作家
 function detectMasterpiece(meta) {
   const title = String(meta?.title || '').replace(/[《》\s]/g, '')
   const author = String(meta?.author || '').trim()
   const content = String(meta?.content || '')
   const writerNames = WRITERS.map((w) => w.name)
-  if (author && writerNames.includes(author)) return true
-  if (title && WRITERS.some((w) => {
-    const w1 = w.work.replace(/[《》]/g, '')
-    const w2 = w.work2.replace(/[《》]/g, '')
-    return w1 === title || w2 === title || w1.includes(title) || w2.includes(title)
-  })) return true
-  if (MASTERPIECE_FINGERPRINTS.some((f) => content.includes(f))) return true
-  return false
+
+  if (author) {
+    const byAuthor = WRITERS.find((w) => w.name === author)
+    if (byAuthor) return { detected: true, writer: byAuthor }
+  }
+  if (title) {
+    const byTitle = WRITERS.find((w) => {
+      const w1 = w.work.replace(/[《》]/g, '')
+      const w2 = w.work2.replace(/[《》]/g, '')
+      return w1 === title || w2 === title || w1.includes(title) || w2.includes(title)
+    })
+    if (byTitle) return { detected: true, writer: byTitle }
+  }
+  for (const fp of MASTERPIECE_FINGERPRINTS) {
+    if (content.includes(fp.text)) {
+      const w = WRITERS.find((x) => x.name === fp.writer)
+      return { detected: true, writer: w || null }
+    }
+  }
+  return { detected: false, writer: null }
 }
 
 // 确定性评分：同文同分。名篇则强制高位，普通文本完全由启发式计算得出（与 AI 无关，保证稳定）
@@ -218,9 +232,12 @@ function overlapScore(a, b) {
   return 0
 }
 
-export function buildPrompt({ content, title, author, annoCount = 5, masterpiece = false }) {
+export function buildPrompt({ content, title, author, annoCount = 5, masterpiece = false, masterpieceWriter = null }) {
   const masterpieceLine = masterpiece
     ? '\n- ★ 本篇经识别为公认的经典名篇：评分（scores 与 total）一律 85 分以上，总评语气应像向经典致敬而非例行评审，禁止任何强烈负面批评'
+    : ''
+  const forcedWriterLine = masterpieceWriter
+    ? `\n- ★ 本篇已被识别为「${masterpieceWriter.name}」的代表作：相似作家 authors 的第 1 位必须且只能是 ${masterpieceWriter.name}（similarity 设为最高，约 90 上下），其余两位再从清单里挑风格相近的作家`
     : ''
   return `你是一位资深文学编辑，拥有二十余年严肃文学编辑经验。请对以下作品进行文本解读，并严格按照 JSON 格式返回。
 
@@ -239,7 +256,7 @@ ${WRITER_LINE}
 - 优先维护作品的文学性，而不是可读性
 - 不要为了顺畅而消除作者刻意制造的晦涩、断裂、意识跳跃；不要把奇异的意象改写得通俗好懂
 - 叙事层面刻意的断裂、歧义、含混属于作者的写作选择，不视作错误，也绝不要求改顺
-- 名著豁免：若输入文本明显是已知的经典名篇或名家作品（如《背影》《荷塘月色》《故乡》等名作片段），请先识别其身份，评价必须符合其既定的文学地位——客观、尊重，肯定其经典价值，严禁对名著给出低分或强烈的负面批评${masterpieceLine}
+- 名著豁免：若输入文本明显是已知的经典名篇或名家作品（如《背影》《荷塘月色》《故乡》等名作片段），请先识别其身份，评价必须符合其既定的文学地位——客观、尊重，肯定其经典价值，严禁对名著给出低分或强烈的负面批评${masterpieceLine}${forcedWriterLine}
 
 评分标准（务必遵守）：
 - 60 分 = 省市级文学刊物可发表的水平；70 分 = 国内重要文学期刊水平；80 分 = 顶尖（《收获》《人民文学》级别）；90 分以上 = 一流作家的名篇；100 分 = 诺贝尔文学奖级别
@@ -252,7 +269,7 @@ ${WRITER_LINE}
   "textOverview": "总评第一段的自然段落（约70-90字，不要用序号不要分点不要任何小标题，也不要写'概览''文本分析'这类字眼）：像 MBTI 人格解读那样，用理解与共情的口吻，先感受这段文字流露出的气质与心绪（叙事视角：正文用'他/她'即第三人称，用'我'即第一人称，别弄错），说出'这段文字像是怎样一个人写下的'——可以落到开头的第一个镜头、最触动的那个细节上，让作者一读就知道你真的读进去了。语气真诚、关怀，像在读懂作者这个人",
   "literaryAnalysis": "总评第二段的自然段落（约220-280字，务必言之有物、有真正的文学深度，不要序号不要分点不要小标题）：像一位懂你的编辑那样，做深入赏析——（a）具体引证：挑出原文一两处真正立起来的句子/意象/细节，说明它好在哪（节奏怎么起落、意象如何经营、留白与克制怎样生效、视角与句法传达了何种情绪）；（b）指出结构上的脉络与起伏；（c）若确有做得不够好的地方，用委婉、商量的语气轻轻带过（例如'或许可以更含蓄一点''这里可能稍微直接了些'），把'作者主动的写作选择'与'真正的缺憾'区分开，绝不刻意挑刺",
   "comparison": "总评第三段的自然段落（约180-240字，不要序号不要分点不要小标题）：挑出文中一两个具体的意象（如'暮色''雨声''旧书页'）或一种笔法，先写作者是如何呈现它们的，再写清单里最相似的那位作家在处理同类意象时的真实笔法（务必符合该作家作品的真实风格，不可编造，例如汪曾祺写吃食讲究味道的余韵、沈从文写湘西景物爱用光与水的层次、张爱玲善用色彩与器物写苍凉），具体到该作家某一部作品的某个片段；通过这样的对照，点明本文与这位作家的接近之处与真实距离，让作者更清楚地看见自己的水平处在哪个位置、下一步往哪个方向走",
-  "conclusion": "总评第四段的自然段落（约40字，不要序号不要分点不要小标题）：用温暖肯定的口吻收尾，给作者一句真诚的鼓励。绝对不要写祝福语、祝愿语或升华金句（祝福语已有单独的区域呈现）",
+  "conclusion": "总评第四段的自然段落（约40字，不要序号不要分点不要小标题）：这是总评的收尾段，承接上面三段，用温暖肯定但实在的口吻给整篇文字一个阶段性的定评——可以总结这篇文字的整体气质或作者最值得肯定的地方，让读者觉得'这段读完了，评价也完整了'。特别注意：这一段是点评的收尾，不是升华句也不是祝福语，绝对不要出现'愿''祝''希望你''愿你'这类祝愿、祝福或升华金句（升华句与祝福语由 emotionalClosing 字段单独呈现，conclusion 里一个字都不能有）",
   "toneMetaphor": "一个'（形容词）的（名词）'格式的短语，例如'雾霭的河岸''黄昏的钟声'，用直觉式比喻概括这段文字的整体调性，只给短语本身，不要解释，也不要加任何括号",
   "styleColor": "代表本段文字风格的专属颜色，必须是合法的六位十六进制色号（如 #B8A9C9）。要求柔和、低饱和、偏淡雅的文学性色调（类似宣纸、暮色、雾霭），不要刺眼的高饱和色",
   "continuation": "约300-500字的续写（至少300字，尽量写到350字以上），风格、语气、节奏与原文完全一致，延续原文的人物、场景与情绪脉络，像同一支笔接着写下去；内容要扎实有推进、有新的细节与起伏，不要空泛抒情或机械复读，不要在这里写总结或收尾",
@@ -463,10 +480,22 @@ const toSimilarity = (v, fallback) => {
   return fallback
 }
 
-function normalizeAuthors(parsed) {
+function normalizeAuthors(parsed, forcedWriter = null) {
   const candidates = Array.isArray(parsed?.authors) ? parsed.authors : []
   const result = []
   const used = new Set()
+
+  // 名著识别命中：作者必须位列第一（最相似），不允许模型漏掉或排到后面
+  if (forcedWriter && WRITERS.some((w) => w.name === forcedWriter.name)) {
+    used.add(forcedWriter.name)
+    result.push({
+      name: forcedWriter.name,
+      work: forcedWriter.work,
+      work2: forcedWriter.work2,
+      reason: '这是本文对应的经典名篇作者，笔法与风格天然一脉相承，相似度最高。',
+      similarity: 92,
+    })
+  }
 
   for (const c of candidates) {
     if (result.length >= 3) break
@@ -530,16 +559,21 @@ function normalizeAuthors(parsed) {
 export function normalizeReview(parsed, content, opts = {}) {
   const annoCap = clampCount(content.trim().length)
 
-  // 总评结尾段禁止出现祝福语（祝福语由 emotionalClosing 单独呈现）：去掉开头的祝福句
+  // 总评结尾段禁止出现祝福语（祝福语由 emotionalClosing 单独呈现）：
+  // 把整段按句末标点切分，剔除任何像祝福/祝愿/升华的句子，不只限于句首
   const scrubBlessing = (t) => {
     const s = String(t || '').trim()
     if (!s) return s
-    if (/^[愿祝]|^希望/.test(s)) {
-      const end = s.search(/[，。！？；、]/)
-      if (end > -1) return s.slice(end + 1).trim()
-      return ''
-    }
-    return s
+    const parts = s.split(/(?<=[。！？；!?…])/).map((p) => p.trim()).filter(Boolean)
+    const kept = parts.filter((p) => {
+      const seg = p.replace(/^["'“”『「]|["'”」』]+$/g, '').trim()
+      if (!seg) return false
+      return !/^(愿|祝|祝福|祝愿|希望|期望|盼|期待着)/.test(seg)
+        && !/愿你|祝你|祝愿你|希望你|愿你笔/.test(seg)
+    })
+    // 全部被删光时保留原文，避免出现空段落
+    if (!kept.length) return s
+    return kept.join('').trim()
   }
 
   // 批注：quote 必须是原文中真实存在的完整句子。模型可能改写/编造引文，
@@ -607,7 +641,7 @@ export function normalizeReview(parsed, content, opts = {}) {
     }
   }
 
-  const authors = normalizeAuthors(parsed)
+  const authors = normalizeAuthors(parsed, opts?.masterpieceWriter || null)
   const computed = computeRadar(content)
 
   // 评分：同文同分（确定性）。完全由文本启发式计算得出，不随 AI 输出波动；
@@ -680,7 +714,7 @@ async function callXfyun(prompt, temperature) {
 // 模型输出完全无法解析时的兜底：基于文本启发式生成一份可用解读，保证用户总能看到结果
 function buildHeuristicReview(content, title, author, masterpiece = false) {
   const computed = computeRadar(content)
-  const { radar, score } = finalizeScores(computed, masterpiece)
+  const { radar, score } = finalizeScores(computed, !!(masterpiece && masterpiece.detected))
   const sentences = extractSentences(content)
   const annoCount = clampCount(content.trim().length)
   const step = sentences.length ? Math.max(1, Math.floor(sentences.length / Math.max(1, annoCount))) : 1
@@ -696,7 +730,7 @@ function buildHeuristicReview(content, title, author, masterpiece = false) {
       startIndex: si,
     })
   }
-  const authors = normalizeAuthors({ authors: [] })
+  const authors = normalizeAuthors({ authors: [] }, masterpiece?.writer || null)
   const tone = ['melancholy', 'passionate', 'serene', 'mysterious', 'humorous'][Math.floor(Math.random() * 5)]
   return {
     author: authors[0],
@@ -771,7 +805,7 @@ export default async function handler(req) {
 
     const annoCount = clampCount(content.trim().length)
     const masterpiece = detectMasterpiece({ title, author, content })
-    const prompt = buildPrompt({ content, title, author, annoCount, masterpiece })
+    const prompt = buildPrompt({ content, title, author, annoCount, masterpiece: masterpiece.detected, masterpieceWriter: masterpiece.writer })
 
     // 低温度优先（保证评分稳定），最多尝试 3 次不同的温度与温度抖动
     const attempts = [0.35, 0.2, 0.5]
@@ -798,7 +832,7 @@ export default async function handler(req) {
       })
     }
 
-    const result = normalizeReview(parsed, content, { masterpiece })
+    const result = normalizeReview(parsed, content, { masterpiece: masterpiece.detected, masterpieceWriter: masterpiece.writer })
 
     // 续写未达到 300-500 字时，用一次专门调用补齐，保证续写够长、够有推进
     let finalResult = result
