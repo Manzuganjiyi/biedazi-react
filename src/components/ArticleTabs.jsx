@@ -12,7 +12,7 @@ export default function ArticleTabs() {
           key={art.id}
           onClick={() => setActiveArticle(art.id)}
           className={`
-            group relative px-3.5 py-1.5 rounded-md text-sm whitespace-nowrap transition-all duration-200
+            group relative px-3.5 py-1.5 rounded-md text-sm whitespace-nowrap transition-colors duration-200
             ${art.id === activeArticleId 
               ? 'bg-black/5 text-editor-text font-medium' 
               : 'text-editor-secondary hover:bg-black/5'

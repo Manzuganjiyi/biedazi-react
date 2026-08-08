@@ -29,13 +29,15 @@ export default {
       },
       animation: {
         'spin-slow': 'spin 1s linear infinite',
-        'paint-right': 'paintRight 1.6s cubic-bezier(0.4, 0, 0.2, 1) forwards',
-        'paint-bottom': 'paintBottom 1.6s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+        'paint-right': 'paintRight 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+        'paint-bottom': 'paintBottom 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards',
         'paint-right-rev': 'paintRightRev 0.5s ease-out forwards',
         'paint-bottom-rev': 'paintBottomRev 0.5s ease-out forwards',
         'shimmer': 'shimmer 1.2s ease-out forwards',
       },
       keyframes: {
+        // 粉刷覆盖层为绝对定位、尺寸由终态 width/height 决定的覆盖层；
+        // 用 width/height 动画从右/下铺满（paint 覆盖层无具体宽高，scaleX/scaleY 对 0 尺寸元素无效）
         paintRight: {
           '0%': { width: '0', opacity: '0' },
           '10%': { opacity: '0.9' },

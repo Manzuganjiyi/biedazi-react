@@ -20,6 +20,8 @@ export default function EditorCanvas() {
   const contTouchY = useRef(null)
   const downAccum = useRef(0)
   const downStart = useRef(0)
+  const upAccum = useRef(0)
+  const upStart = useRef(0)
   const [isEmpty, setIsEmpty] = useState(true)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
 
@@ -154,35 +156,28 @@ export default function EditorCanvas() {
     })
   }, [activeArticleId, resultsVisible, annotations, showContinuation])
 
-  // 与回退键一致的滚动切换：
-  // 滚动到底再向下滚的 3 段式切换（带累积缓冲，避免顺手一滚就误触）：
-  //  1. 下边栏存在（右栏+下边栏）→ 先收起下边栏，回到仅右栏状态
-  //  2. 仅右栏 → 收起右栏，切到纯编辑器+续写视图（同 returnToEditor 的收起）
-  //  3. 续写态 → 重新展开右栏（同 returnToEditor 的展开）
-  const revealContinuation = useCallback(() => {
-    setShowContinuation(true)
-    setShowBottomBar(false)
-    setContinuationDimmed(false)
-  }, [setShowContinuation, setShowBottomBar, setContinuationDimmed])
-
-  const expandPanels = useCallback(() => {
-    setShowContinuation(false)
-    setContinuationDimmed(false)
-  }, [setShowContinuation, setContinuationDimmed])
-
+  // 滚动切换：续写区已内联在编辑区的原生滚动流里（文章末尾之后紧接续写），
+  // 编辑区滚动条到底后继续向下滚会自然流入续写区，右侧边栏保持不动、不产生视图跳变；
+  // 唯一的视图切换留在两个边界手势上：
+  //   · 续写区滚动条到底后继续向下滚 → 不再打开右边栏，而是收起右边栏（进入全宽续写视图）
+  //   · 编辑区滚动到顶后继续向上滚 → 打开右边栏
   const transitionFromScroll = useCallback(() => {
-    if (showContinuation) expandPanels()
-    else if (showBottomBar) setShowBottomBar(false)
-    else revealContinuation()
-  }, [showContinuation, showBottomBar, expandPanels, revealContinuation, setShowBottomBar])
+    if (showBottomBar) setShowBottomBar(false)
+    else setShowContinuation(true)
+  }, [showBottomBar, setShowBottomBar, setShowContinuation])
+
+  const transitionFromTopScroll = useCallback(() => {
+    setShowContinuation(false)
+  }, [setShowContinuation])
 
   const handleEditorWheel = useCallback((e) => {
     const el = scrollAreaRef.current
     if (!el || !resultsVisible) return
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30
+    const nearTop = el.scrollTop < 30
     const now = Date.now()
 
-    // 只在"滚到底后再向下滚"时切换：下边栏 → 仅右栏 → 续写 → 仅右栏
+    // 续写区滚到底后再向下滚：收起下边栏 → 收起右边栏
     if (nearBottom && e.deltaY > 0) {
       if (!downStart.current || now - downStart.current > 400) {
         downStart.current = now
@@ -194,11 +189,25 @@ export default function EditorCanvas() {
         downStart.current = 0
         transitionFromScroll()
       }
+    } else if (nearTop && e.deltaY < 0 && showContinuation) {
+      // 编辑区滚到顶后再向上滚：打开右边栏
+      if (!upStart.current || now - upStart.current > 400) {
+        upStart.current = now
+        upAccum.current = 0
+      }
+      upAccum.current += Math.abs(e.deltaY)
+      if (upAccum.current >= 120) {
+        upAccum.current = 0
+        upStart.current = 0
+        transitionFromTopScroll()
+      }
     } else {
       downAccum.current = 0
       downStart.current = 0
+      upAccum.current = 0
+      upStart.current = 0
     }
-  }, [resultsVisible, transitionFromScroll])
+  }, [resultsVisible, transitionFromScroll, transitionFromTopScroll, showContinuation])
 
   const handleEditorTouchStart = useCallback((e) => {
     contTouchY.current = e.touches?.[0]?.clientY ?? null
@@ -209,9 +218,10 @@ export default function EditorCanvas() {
     if (!el || contTouchY.current == null || !resultsVisible) return
     const dy = contTouchY.current - e.touches[0].clientY
     const nearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 30
+    const nearTop = el.scrollTop < 30
     const now = Date.now()
 
-    // 只在"滚到底后再向下滚（dy>0）"时切换：下边栏 → 仅右栏 → 续写 → 仅右栏
+    // 续写区滚到底后再向下滚（dy>0）：收起下边栏 → 收起右边栏
     if (nearBottom && dy > 0) {
       if (!downStart.current || now - downStart.current > 400) {
         downStart.current = now
@@ -225,12 +235,28 @@ export default function EditorCanvas() {
         contTouchY.current = null
         return
       }
+    } else if (nearTop && dy < 0 && showContinuation) {
+      // 编辑区滚到顶后再向上滚（dy<0）：打开右边栏
+      if (!upStart.current || now - upStart.current > 400) {
+        upStart.current = now
+        upAccum.current = 0
+      }
+      upAccum.current += Math.abs(dy)
+      if (upAccum.current >= 120) {
+        upAccum.current = 0
+        upStart.current = 0
+        transitionFromTopScroll()
+        contTouchY.current = null
+        return
+      }
     } else {
       downAccum.current = 0
       downStart.current = 0
+      upAccum.current = 0
+      upStart.current = 0
     }
     contTouchY.current = e.touches[0].clientY
-  }, [resultsVisible, transitionFromScroll])
+  }, [resultsVisible, transitionFromScroll, transitionFromTopScroll, showContinuation])
 
   // 滚动触发（非淡色）切到续写模式后，把续写内容滚动到视野内；输入触发的淡色保留不抢光标位置
   useEffect(() => {
@@ -304,8 +330,10 @@ export default function EditorCanvas() {
             <GhostTextOverlay />
           </div>
 
-          {/* 续写内容：切到续写模式后，紧跟在文段之后呈现；输入文字时以淡色形式保留 */}
-          {showContinuation && activeArticle?.review?.continuation && (
+          {/* 续写内容：作为编辑区滚动流的一部分，紧跟文段之后内联呈现（结果可见时始终在流内），
+              滚动到底自然流入续写区，不触发视图切换、右侧边栏保持不动；
+              输入文字时以淡色形式保留 */}
+          {activeArticle?.review?.continuation && resultsVisible && (
             <div
               ref={contRef}
               className={`mt-8 pt-6 border-t border-editor-border/50 transition-opacity duration-500 ${continuationDimmed ? 'opacity-60' : ''}`}
@@ -322,16 +350,16 @@ export default function EditorCanvas() {
         </div>
       </div>
 
-      {/* AI 分析中的扫描动效 */}
+      {/* AI 分析中的墨痕扫读：一条墨色阅读线自纸面顶端向下扫过（读文意象），
+          前缘带细墨线，像毛笔拖过的痕迹；不做通用扫描框装饰，呼应整站"纸墨"基调 */}
       {isThinking && (
         <div className="pointer-events-none absolute inset-0 z-20 overflow-hidden">
-          <div className="absolute left-0 right-0 h-40 animate-editor-scan"
-            style={{ background: 'linear-gradient(to bottom, transparent, rgba(74,74,74,0.09), transparent)' }}
+          <div
+            className="absolute top-0 left-0 right-0 h-40 animate-editor-scan"
+            style={{
+              background: 'linear-gradient(to bottom, transparent, rgba(74,74,74,0.05) 38%, rgba(74,74,74,0.30) 50%, rgba(74,74,74,0.08) 62%, transparent)',
+            }}
           />
-          <div className="absolute top-4 left-4 w-8 h-8 border-l-2 border-t-2 border-editor-accent/30 rounded-tl-md" />
-          <div className="absolute top-4 right-4 w-8 h-8 border-r-2 border-t-2 border-editor-accent/30 rounded-tr-md" />
-          <div className="absolute bottom-4 left-4 w-8 h-8 border-l-2 border-b-2 border-editor-accent/30 rounded-bl-md" />
-          <div className="absolute bottom-4 right-4 w-8 h-8 border-r-2 border-b-2 border-editor-accent/30 rounded-br-md" />
         </div>
       )}
     </div>

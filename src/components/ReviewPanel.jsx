@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useWriterStore } from '../store/useWriterStore'
-import { motion, AnimatePresence } from 'framer-motion'
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
 import { ArrowLeft, Share2, Check, AlertCircle, X, Scan, BookOpen, Users, MessageSquare, PenLine, Sparkles } from 'lucide-react'
 import { analyzeTextAPI, TONE_COLORS } from '../data/mockReviews'
 import QRCode from 'qrcode'
@@ -139,12 +139,12 @@ function RadarChart({ data, size = 120 }) {
 }
 
 // ==================== 调性比喻文案（艺术衬线字体）====================
-function ToneMetaphor({ text }) {
+function ToneMetaphor({ text, size = 19 }) {
   if (!text) return null
   return (
     <div
       className="font-serif-cn italic tracking-wide text-center"
-      style={{ color: '#8B7355', fontSize: 19, letterSpacing: '0.08em' }}
+      style={{ color: '#8B7355', fontSize: size, letterSpacing: '0.08em' }}
     >
       {text}
     </div>
@@ -161,8 +161,8 @@ function ScoreCard({ score, radar, fill, toneMetaphor }) {
       transition={{ duration: 0.4, ease: EASE_OUT }}
     >
       <div className={`flex flex-col items-center justify-center gap-2.5 ${fill ? 'flex-1' : ''}`}>
-        <RadarChart data={radar} size={fill ? 150 : 120} />
-        <ToneMetaphor text={toneMetaphor} />
+        <RadarChart data={radar} size={fill ? 180 : 120} />
+        <ToneMetaphor text={toneMetaphor} size={fill ? 22 : 19} />
       </div>
     </motion.div>
   )
@@ -179,42 +179,38 @@ function ThinkingProcess({ steps, activeIndex, progress }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: EASE_OUT }}
     >
-      {/* 顶部雷达扫视 + 环形进度 */}
+      {/* 顶部墨渍：中心湿痕缓慢起伏，三层水墨晕染环向外扩散，替代原来的硬边雷达 */}
       <div className="relative h-24 mb-4 flex items-center justify-center">
-        <div className="absolute inset-0 rounded-full border border-editor-accent/20 animate-ping" style={{ animationDuration: '2.4s' }} />
-        <div className="absolute inset-3 rounded-full border border-editor-accent/15 animate-ping" style={{ animationDuration: '2.4s', animationDelay: '0.5s' }} />
-        <div className="absolute inset-6 rounded-full border border-editor-accent/10 animate-ping" style={{ animationDuration: '2.4s', animationDelay: '1s' }} />
-        {/* 旋转扫描射线 */}
-        <motion.div
-          className="absolute inset-0 rounded-full"
-          animate={{ rotate: 360 }}
-          transition={{ repeat: Infinity, duration: 2.8, ease: 'linear' }}
+        {/* 水墨晕染环：由中心向外扩散并淡去（无硬边，像纸上洇开） */}
+        <div className="absolute w-16 h-16 rounded-full ink-bleed" style={{ background: 'radial-gradient(circle, rgba(74,74,74,0.16), transparent 70%)', animation: 'ink-bleed 2.4s cubic-bezier(0.4,0,0.2,1) infinite' }} />
+        <div className="absolute w-16 h-16 rounded-full ink-bleed" style={{ background: 'radial-gradient(circle, rgba(74,74,74,0.12), transparent 70%)', animation: 'ink-bleed 2.4s cubic-bezier(0.4,0,0.2,1) 0.8s infinite' }} />
+        <div className="absolute w-16 h-16 rounded-full ink-bleed" style={{ background: 'radial-gradient(circle, rgba(74,74,74,0.09), transparent 70%)', animation: 'ink-bleed 2.4s cubic-bezier(0.4,0,0.2,1) 1.6s infinite' }} />
+        {/* 中心墨渍：纸上湿痕般缓慢呼吸 */}
+        <div
+          className="relative w-16 h-16 rounded-full shadow-sm"
+          style={{
+            background: 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.9), rgba(74,74,74,0.12) 58%, rgba(74,74,74,0.28) 100%)',
+            animation: 'ink-breathe 2.6s ease-in-out infinite',
+          }}
         >
-          <div className="absolute top-1/2 left-1/2 w-[47%] h-px origin-left"
-            style={{ background: 'linear-gradient(to right, transparent, rgba(74,74,74,0.55), transparent)' }}
-          />
-        </motion.div>
-        {/* 环形进度 */}
-        <div className="relative w-16 h-16 bg-white/70 rounded-full shadow-sm">
-          <svg viewBox="0 0 64 64" className="w-16 h-16">
-            <circle cx="32" cy="32" r="27" fill="none" stroke="rgba(0,0,0,0.08)" strokeWidth="4" />
-            <circle
-              cx="32" cy="32" r="27" fill="none" stroke="#4A4A4A" strokeWidth="4"
-              strokeLinecap="round" strokeDasharray="169.6"
-              strokeDashoffset={169.6 * (1 - (progress || 0) / 100)}
-              transform="rotate(-90 32 32)"
-              className="transition-[stroke-dashoffset] duration-300 ease-out"
-            />
-          </svg>
-          <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-editor-accent">
+          <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-editor-accent font-serif-cn">
             {progress || 0}%
           </div>
         </div>
       </div>
 
-      <div className="text-xs font-medium text-editor-secondary mb-2 flex items-center gap-1.5">
-        <Sparkles size={12} className="text-editor-accent" />
-        AI 解读进行中
+      <div className="relative mb-2">
+        <div className="text-xs font-medium text-editor-secondary flex items-center gap-1.5 font-serif-cn">
+          <Sparkles size={12} className="text-editor-accent" />
+          AI 解读进行中
+        </div>
+        {/* 落笔墨痕：标签下一条墨线自左向右扫过，与整站毛笔意象呼应 */}
+        <div className="absolute -bottom-1 left-0 h-[2px] w-16 overflow-hidden rounded-full">
+          <div
+            className="absolute top-0 left-0 h-full w-full animate-brush-sweep rounded-full"
+            style={{ background: 'linear-gradient(90deg, transparent, rgba(139,115,85,0.6), transparent)' }}
+          />
+        </div>
       </div>
 
       <div className="space-y-1">
@@ -226,19 +222,19 @@ function ThinkingProcess({ steps, activeIndex, progress }) {
             <motion.div
               key={i}
               className={`flex items-center gap-3 py-2 px-2 rounded-lg transition-colors duration-300
-                ${done ? 'bg-green-50/70' : ''}
-                ${active ? 'bg-editor-accent/5' : ''}`}
+                ${done ? 'bg-editor-accent/6' : ''}
+                ${active ? 'bg-editor-accent/8' : ''}`}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.12, duration: 0.3 }}
             >
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-colors duration-300
-                ${done ? 'bg-green-500 text-white' : ''}
+              <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-colors duration-300 font-serif-cn
+                ${done ? 'bg-editor-accent text-white' : ''}
                 ${active ? 'bg-editor-accent text-white' : 'bg-black/5 text-editor-secondary/60'}`}
               >
                 {done ? <Check size={13} /> : <Icon size={13} className={active ? 'animate-bounce' : ''} />}
               </div>
-              <span className={`text-sm ${done ? 'text-editor-secondary/70' : active ? 'text-editor-text' : 'text-editor-secondary/40'}`}>
+              <span className={`text-sm font-serif-cn ${done ? 'text-editor-secondary/70' : active ? 'text-editor-text' : 'text-editor-secondary/40'}`}>
                 {step}
               </span>
               {active && (
@@ -251,6 +247,17 @@ function ThinkingProcess({ steps, activeIndex, progress }) {
             </motion.div>
           )
         })}
+      </div>
+      {/* 落笔进度：底部一条毛笔般的墨痕从右向左扫过（与整体纸张气质呼应） */}
+      <div className="relative h-1.5 mt-3 overflow-hidden rounded-full bg-black/5">
+        <div
+          className="absolute inset-0"
+          style={{
+            background: 'linear-gradient(to left, transparent, rgba(74,74,74,0.7) 50%, transparent)',
+            width: '36%',
+            animation: 'brush-sweep 2.6s cubic-bezier(0.4, 0, 0.2, 1) infinite',
+          }}
+        />
       </div>
     </motion.div>
   )
@@ -293,7 +300,7 @@ function LiquidBall({ percent, size = 42 }) {
         {/* 玻璃高光 */}
         <ellipse cx={cx - r * 0.38} cy={cx - r * 0.4} rx={r * 0.22} ry={r * 0.45} fill="rgba(255,255,255,0.5)" transform={`rotate(-24 ${cx - r * 0.38} ${cx - r * 0.4})`} />
       </svg>
-      <div className="text-[10px] font-semibold text-editor-accent leading-none">{p}%</div>
+      <div className="text-[12px] font-semibold text-editor-accent leading-none">{p}%</div>
     </div>
   )
 }
@@ -303,7 +310,7 @@ function AuthorsCard({ authors, fill }) {
   const list = Array.isArray(authors) && authors.length ? authors : []
   return (
     <motion.div 
-      className={`glass-card p-4 flex flex-col ${fill ? 'h-full' : 'mb-3'}`}
+      className={`glass-card p-4 flex flex-col ${fill ? 'h-full justify-center' : 'mb-3'}`}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: EASE_OUT }}
@@ -311,15 +318,15 @@ function AuthorsCard({ authors, fill }) {
       {list.map((author, i) => (
         <div 
           key={i}
-          className={`flex items-center gap-2.5 ${fill ? 'flex-1 items-center' : ''} ${i < list.length - 1 ? 'border-b border-black/5' : ''}`}
+          className={`flex items-center gap-3 py-2 ${i < list.length - 1 ? 'border-b border-black/5' : ''}`}
         >
-          <LiquidBall percent={author.similarity} />
+          <LiquidBall percent={author.similarity} size={fill ? 50 : 42} />
           <div className="min-w-0">
-            <div className="flex items-baseline gap-1.5">
-              <span className="text-[13px] font-medium text-editor-text leading-tight">{author.name}</span>
-              <span className="text-[11px] text-editor-secondary truncate">{author.work}</span>
+            <div className="flex items-baseline gap-2">
+              <span className="text-[16px] font-medium text-editor-text leading-tight">{author.name}</span>
+              <span className="text-[13px] text-editor-secondary truncate">{author.work}</span>
             </div>
-            <div className="text-[11px] text-editor-secondary/70 mt-0.5 leading-snug">{author.reason}</div>
+            <div className="text-[13px] text-editor-secondary/70 mt-1 leading-snug line-clamp-2">{author.reason}</div>
           </div>
         </div>
       ))}
@@ -425,15 +432,15 @@ function SummaryCard({ review, fill }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.3, ease: EASE_OUT }}
     >
-      <div ref={contentRef} onScroll={handleScroll} className={`text-[13px] text-editor-text leading-relaxed ${fill ? 'flex-1 overflow-y-auto' : ''}`}>
+      <div ref={contentRef} onScroll={handleScroll} className={`text-[15px] text-editor-text leading-relaxed ${fill ? 'flex-1 overflow-y-auto' : ''}`}>
         {hasStructured ? (
           flowSegments.map((seg, j) => (
             <div key={j} className={`whitespace-pre-line ${j > 0 ? 'mt-3' : ''}`}>
-              {j === 0 ? `\n${seg}` : seg}
+              {seg}
             </div>
           ))
         ) : (
-          <div className="whitespace-pre-line">{`\n${review?.summary || ''}`}</div>
+          <div className="whitespace-pre-line">{review?.summary || ''}</div>
         )}
       </div>
       {review?.emotionalClosing && (
@@ -536,7 +543,7 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
           </div>
           <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, paddingTop: 14 }}>
             <ShareQrCode />
-            <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', fontSize: 9, color: sub, letterSpacing: 2, marginLeft: 6, lineHeight: 1.5 }}>
+            <span style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', height: 44, fontSize: 9, color: sub, letterSpacing: 2, marginLeft: 6, lineHeight: 1 }}>
               {'扫码体验'.split('').map((ch, i) => <span key={i}>{ch}</span>)}
             </span>
           </div>
@@ -603,6 +610,82 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
   )
 })
 
+// ==================== 水彩浸润层 ====================
+// 结果呈现瞬间，一束水彩从右侧批注栏的右侧甩入编辑区：先是一整幅色带
+// 由右向左铺开（clip-path），同时多个色斑从右侧"飞落"（translateX 位移）
+// 向左晕开。动画结束后整层沉降为淡淡的持久底色（不消失），让水彩真正
+// 沁进纸里，符合"浸润后保持"的观感。
+// right（vw）：色斑落点相对右侧视口的距离，分布在编辑区（左 ~60%）而非批注栏。
+const SPLASH_BLOTS = [
+  { top: '8%',  size: 340, right: 58, delay: 0.03, dur: 1.15, o: 0.38 },
+  { top: '28%', size: 470, right: 42, delay: 0.2,  dur: 1.45, o: 0.3 },
+  { top: '54%', size: 300, right: 40, delay: 0.38, dur: 1.25, o: 0.34 },
+  { top: '74%', size: 430, right: 55, delay: 0.14, dur: 1.5,  o: 0.26 },
+]
+
+function WatercolorSplash({ color }) {
+  // 水彩纹理：feTurbulence + feDisplacementMap 让色斑边缘呈自然晕染
+  const textureId = React.useMemo(() => `wc-${Math.random().toString(36).slice(2, 8)}`, [])
+  // 飞溅动画（约 2s）结束后，整层沉降为持久淡色，不再消失
+  const [settled, setSettled] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setSettled(true), 2100)
+    return () => clearTimeout(t)
+  }, [])
+
+  return (
+    <div
+      className="pointer-events-none fixed inset-0 z-[35] overflow-hidden"
+      style={{
+        opacity: settled ? 0.34 : 1,
+        transition: 'opacity 1.4s ease-out',
+      }}
+    >
+      <svg width="0" height="0" className="absolute" aria-hidden>
+        <defs>
+          <filter id={textureId}>
+            <feTurbulence type="fractalNoise" baseFrequency="0.012 0.02" numOctaves={3} seed={7} result="noise" />
+            <feDisplacementMap in="SourceGraphic" in2="noise" scale="90" />
+          </filter>
+        </defs>
+      </svg>
+
+      {/* 整幅水彩：由右缘由右向左铺开覆盖全屏（含编辑区与批注栏），铺开后留驻 */}
+      <div
+        className="absolute right-0 top-0 bottom-0 left-0"
+        style={{
+          filter: `url(#${textureId})`,
+          background: `radial-gradient(ellipse at 0% 42%, ${hexToRgba(color, 0.5)}, ${hexToRgba(color, 0.18)} 46%, transparent 78%)`,
+          mixBlendMode: 'multiply',
+          clipPath: 'inset(0 100% 0 0)',
+          animation: 'watercolor-sweep 1.6s cubic-bezier(0.22, 1, 0.36, 1) forwards',
+        }}
+      />
+
+      {/* 错落飞溅的色斑：从右侧之外甩入、向左飞落并晕开，落点散布在编辑区（左），边缘经纹理滤镜呈水彩晕染 */}
+      {SPLASH_BLOTS.map((b, i) => (
+        <div
+          key={i}
+          className="absolute"
+          style={{
+            right: `${b.right}vw`,
+            top: b.top,
+            width: b.size,
+            height: b.size,
+            borderRadius: '50%',
+            background: `radial-gradient(circle, ${hexToRgba(color, b.o)} 0%, ${hexToRgba(color, b.o * 0.4)} 42%, transparent 72%)`,
+            mixBlendMode: 'multiply',
+            filter: `url(#${textureId})`,
+            transform: 'translateX(26vw)',
+            animation: `watercolor-blot ${b.dur}s cubic-bezier(0.22, 1, 0.36, 1) ${b.delay}s forwards`,
+            willChange: 'transform, opacity',
+          }}
+        />
+      ))}
+    </div>
+  )
+}
+
 // ==================== 主面板 ====================
 export default function ReviewPanel() {
   const { 
@@ -628,6 +711,10 @@ export default function ReviewPanel() {
   const drawerTouchY = useRef(null)
   const drawerUpAccum = useRef(0)
   const drawerUpStart = useRef(0)
+  // 结果呈现瞬间播放一次水彩浸润（用自增 key 触发重新挂载）
+  const [splashKey, setSplashKey] = useState(0)
+  const [splashOn, setSplashOn] = useState(false)
+  const reduceMotion = useReducedMotion()
 
   const activeArticle = articles.find(a => a.id === activeArticleId)
 
@@ -651,6 +738,8 @@ export default function ReviewPanel() {
     setShowBottomBar(false)
     setShowContinuation(false)
     setBottomBarH(isMobile ? 62 : 50)
+    prevResults.current = false
+    setSplashOn(false)
 
     // 内容未改动 → 直接复用上次解读，跳过思考与 API
     if (cachedReview) {
@@ -695,6 +784,17 @@ export default function ReviewPanel() {
 
     return () => clearInterval(progressTimer)
   }, [isReviewing, activeArticleId])
+
+  // 结果呈现（含缓存复用）瞬间播放一次水彩浸润；已播过或重开解读时重置
+  const prevResults = useRef(false)
+  useEffect(() => {
+    if (showResults && !prevResults.current) {
+      setSplashKey(k => k + 1)
+      setSplashOn(true)
+    }
+    if (!showResults) setSplashOn(false)
+    prevResults.current = showResults
+  }, [showResults])
 
   const handleAnchorClick = (index, quote) => {
     const editor = document.getElementById('editor-content')
@@ -1047,13 +1147,19 @@ export default function ReviewPanel() {
                   className={`absolute right-0 top-0 bottom-0 
                     ${isClosing ? 'animate-paint-right-rev' : 'animate-paint-right'}
                   `}
-                  style={{ background: `linear-gradient(to left, ${hexToRgba(toneColor)}, transparent)` }}
+                  style={{ background: `linear-gradient(to left, ${hexToRgba(toneColor)}, ${hexToRgba(toneColor, 0.35)} 55%, transparent)` }}
                 />
                 {!isClosing && (
-                  <div 
-                    className="absolute top-0 bottom-0 left-0 w-1/3 animate-shimmer"
-                    style={{ background: 'linear-gradient(to left, rgba(255,255,255,0.5), transparent)' }}
-                  />
+                  <>
+                    <div 
+                      className="absolute inset-0 animate-paint-soft"
+                      style={{ background: `radial-gradient(circle at 85% 30%, ${hexToRgba(toneColor, 0.22)}, transparent 62%)` }}
+                    />
+                    <div 
+                      className="absolute top-0 bottom-0 left-0 w-1/3 animate-shimmer"
+                      style={{ background: 'linear-gradient(to left, rgba(255,255,255,0.5), transparent)' }}
+                    />
+                  </>
                 )}
               </>
             )}
@@ -1146,6 +1252,10 @@ export default function ReviewPanel() {
   // 桌面端：右侧批注栏（浮动卡片）+ 可拖动的下边栏
   return (
     <>
+      {/* 水彩浸润：结果呈现时从侧边飞溅浸润编辑区（只在桌面端，一次） */}
+      {splashOn && !isMobile && !reduceMotion && (
+        <WatercolorSplash key={splashKey} color={toneColor} />
+      )}
       {/* 右侧批注栏：浮动玻璃卡片。未升起下边栏时占满右列高度，不遮住编辑器全文；下边栏升起时上移腾位，编辑器同时向左上压缩；切到续写模式后滑出 */}
       <div
         className={`fixed right-4 z-40 flex flex-col rounded-2xl overflow-hidden transition-[transform,bottom] duration-500
@@ -1173,7 +1283,7 @@ export default function ReviewPanel() {
                   ${isClosing ? 'animate-paint-right-rev' : 'animate-paint-right'}
                 `}
                 style={{ 
-                  background: `linear-gradient(to left, ${hexToRgba(toneColor)}, transparent)`,
+                  background: `linear-gradient(to left, ${hexToRgba(toneColor)}, ${hexToRgba(toneColor, 0.35)} 55%, transparent)`,
                 }}
               />
               <div 
@@ -1182,9 +1292,16 @@ export default function ReviewPanel() {
                   ${isClosing ? 'animate-paint-bottom-rev' : 'animate-paint-bottom'}
                 `}
                 style={{ 
-                  background: `linear-gradient(to top, ${hexToRgba(toneColor)}, transparent)`,
+                  background: `linear-gradient(to top, ${hexToRgba(toneColor, 0.5)}, transparent)`,
                 }}
               />
+              {/* 第二层：调性互补的淡色晕染，让粉刷更有层次 */}
+              {!isClosing && (
+                <div 
+                  className="absolute inset-0 animate-paint-soft"
+                  style={{ background: `radial-gradient(circle at 85% 30%, ${hexToRgba(toneColor, 0.22)}, transparent 62%)` }}
+                />
+              )}
               {!isClosing && (
                 <>
                   <div 
@@ -1308,10 +1425,10 @@ export default function ReviewPanel() {
             <div className="mt-1.5 w-12 h-1 rounded-full bg-black/20" />
           </div>
           {/* 内容三栏：等高分栏，视觉整齐；各自滚到顶再上滑时收回下边栏 */}
-          {/* 顶部 pt-6 避开拖动手柄（h-6），首行空行由总评内容自身实现 */}
+          {/* 顶部 pt-6 避开拖动手柄（h-6） */}
           <div className="flex flex-1 min-h-0 pt-6">
             <div
-              className="w-[240px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto"
+              className="w-[260px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto"
               onWheel={handleBarWheel}
               onTouchStart={handleBarTouchStart}
               onTouchMove={handleBarTouchMove}
@@ -1319,7 +1436,7 @@ export default function ReviewPanel() {
               <ScoreCard score={reviewData.score} radar={reviewData.radar} toneMetaphor={reviewData.toneMetaphor} fill />
             </div>
             <div
-              className="w-[280px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto"
+              className="w-[300px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto"
               onWheel={handleBarWheel}
               onTouchStart={handleBarTouchStart}
               onTouchMove={handleBarTouchMove}

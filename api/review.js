@@ -394,12 +394,12 @@ ${MARKER_LINE}
   "textOverview": "总评第一段的自然段落（约70-90字，不要用序号不要分点不要任何小标题，也不要写'概览''文本分析'这类字眼）：像 MBTI 人格解读那样，用理解与共情的口吻，先感受这段文字流露出的气质与心绪（叙事视角：正文用'他/她'即第三人称，用'我'即第一人称，别弄错），说出'这段文字像是怎样一个人写下的'——可以落到开头的第一个镜头、最触动的那个细节上，让作者一读就知道你真的读进去了。语气真诚、关怀，像在读懂作者这个人",
   "literaryAnalysis": "总评第二段的自然段落（约220-280字，务必言之有物、有真正的文学深度，不要序号不要分点不要小标题）：像一位懂你的编辑那样，做深入赏析——（a）具体引证：挑出原文一两处真正立起来的句子/意象/细节，说明它好在哪（节奏怎么起落、意象如何经营、留白与克制怎样生效、视角与句法传达了何种情绪）；（b）指出结构上的脉络与起伏；（c）若确有做得不够好的地方，用委婉、商量的语气轻轻带过（例如'或许可以更含蓄一点''这里可能稍微直接了些'），把'作者主动的写作选择'与'真正的缺憾'区分开，绝不刻意挑刺",
   "comparison": "总评第三段的自然段落（约180-240字，不要序号不要分点不要小标题）：挑出文中一两个具体的意象（如'暮色''雨声''旧书页'）或一种笔法，先写作者是如何呈现它们的，再写清单里最相似的那位作家在处理同类意象时的真实笔法（务必符合该作家作品的真实风格，不可编造，例如汪曾祺写吃食讲究味道的余韵、沈从文写湘西景物爱用光与水的层次、张爱玲善用色彩与器物写苍凉），具体到该作家某一部作品的某个片段；通过这样的对照，点明本文与这位作家的接近之处与真实距离，让作者更清楚地看见自己的水平处在哪个位置、下一步往哪个方向走",
-  "conclusion": "总评第四段的自然段落（约40字，不要序号不要分点不要小标题）：这是总评的收尾段，承接上面三段，用温暖肯定但实在的口吻给整篇文字一个阶段性的定评——可以总结这篇文字的整体气质或作者最值得肯定的地方，让读者觉得'这段读完了，评价也完整了'。特别注意：这一段是点评的收尾，不是升华句也不是祝福语，绝对不要出现'愿''祝''希望你''愿你'这类祝愿、祝福或升华金句（S 句由 emotionalClosing 字段单独呈现，conclusion 里一个字都不能有）",
+  "conclusion": "总评第四段的自然段落（约40字，不要序号不要分点不要小标题）：这是总评的收尾段，承接上面三段，用温暖肯定但实在的口吻给整篇文字一个阶段性的定评——可以总结这篇文字的整体气质或作者最值得肯定的地方，让读者觉得'这段读完了，评价也完整了'。特别注意：这一段是点评的收尾，不是升华句也不是祝福语，绝对不要出现'愿''祝''希望你''愿你'这类祝愿、祝福或升华金句（升华句由 emotionalClosing 字段单独呈现，conclusion 里一个字都不能有）。另外，'S句'只是这套题目的内部叫法，你在任何输出文本中都不能出现'S句''S 句'这两个字，只把它当作字段的内部代号，永远不要写给读者看",
   "toneMetaphor": "一个'（形容词）的（名词）'格式的短语，例如'雾霭的河岸''黄昏的钟声'，用直觉式比喻概括这段文字的整体调性，只给短语本身，不要解释，也不要加任何括号",
   "styleColor": "代表本段文字风格的专属颜色，必须是合法的六位十六进制色号（如 #B8A9C9）。要求柔和、低饱和、偏淡雅的文学性色调（类似宣纸、暮色、雾霭），不要刺眼的高饱和色",
   "continuation": "约300-500字的续写（至少300字，尽量写到350字以上），风格、语气、节奏与原文完全一致，延续原文的人物、场景与情绪脉络，像同一支笔接着写下去；内容要扎实有推进、有新的细节与起伏，不要空泛抒情或机械复读，不要在这里写总结或收尾",
   "bestQuote": "整篇文字里最出彩、最值得单独拎出来展示的那一句话（可以是任何位置的完整句子，必须在正文中逐字真实存在，含句末标点；要挑真正立得住、有文学质感的句子，不是随便选一句）",
-  "emotionalClosing": "一句克制的、有文学余味的诗意升华句（S 句，20-40字），用意象或隐喻收束全篇的余韵，提升整篇格调；不一定是祝福或祝愿，可以是任何有画面感、有升华感的文学性收束，但避免鸡汤与空泛",
+  "emotionalClosing": "一句克制的、有文学余味的诗意升华句（内部代号为S句，20-40字），用意象或隐喻收束全篇的余韵，提升整篇格调；不一定是祝福或祝愿，可以是任何有画面感、有升华感的文学性收束，但避免鸡汤与空泛。注意：'S句''S 句'是字段的内部代号，绝不能出现在你的任何输出文本里，读者只应该看到升华句本身",
   "tone": "melancholy|passionate|serene|mysterious|humorous 之一，按文本整体情感基调判断",
   "masterpiece": { "isMasterpiece": 是否凭正文文风与内容判断出本文明显是某部经典名篇/名家作品（true/false）, "writer": "若 isMasterpiece 为 true 且你能确定作者，填该作者在清单中的准确名字（例如'朱自清'）；不确定或非清单内作者则填 null", "work": "若 isMasterpiece 为 true 且你能确定作品，填作品名（如'《背影》'）；不确定则填 null" },
   "scores": { "language": 0-100整数, "structure": 0-100整数, "imagery": 0-100整数, "emotion": 0-100整数, "innovation": 0-100整数, "total": 0-100整数 },
@@ -722,22 +722,6 @@ export function normalizeReview(parsed, content, opts = {}) {
     .filter((a) => a && String(a.comment || '').trim())
     .slice(0, annoCap)
 
-  // 出彩句（导出卡展示用）：模型给出后匹配到真实句子；若未给出或匹配不上，退回第一条批注的引文
-  const bestQuote = (() => {
-    const q = String(parsed?.bestQuote || '').trim().replace(/\s+/g, '')
-    const stripped = q.replace(/[，。！？；：""''（）…、—\-\s]/g, '')
-    let best = null
-    let bestScore = 0
-    if (stripped) {
-      for (const s of sentences) {
-        const sc = overlapScore(stripped, s)
-        if (sc > bestScore) { bestScore = sc; best = s }
-      }
-    }
-    if (best && bestScore >= 6) return best
-    return annotations[0]?.quote || best || sentences[0] || ''
-  })()
-
   const usedIdx = new Set()
   const pickByTextOrder = (preferPos) => {
     const avail = []
@@ -797,6 +781,24 @@ export function normalizeReview(parsed, content, opts = {}) {
   }
 
   const authors = normalizeAuthors(parsed, opts?.masterpieceWriter || null)
+
+  // 出彩句（导出卡展示用）：模型给出后匹配到真实句子；若未给出或匹配不上，退回第一条批注的引文
+  // 注意：必须在 annotations 构建之后计算（会回退到 annotations[0]）
+  const bestQuote = (() => {
+    const q = String(parsed?.bestQuote || '').trim().replace(/\s+/g, '')
+    const stripped = q.replace(/[，。！？；：""''（）…、—\-\s]/g, '')
+    let best = null
+    let bestScore = 0
+    if (stripped) {
+      for (const s of sentences) {
+        const sc = overlapScore(stripped, s)
+        if (sc > bestScore) { bestScore = sc; best = s }
+      }
+    }
+    if (best && bestScore >= 6) return best
+    return annotations[0]?.quote || best || sentences[0] || ''
+  })()
+
   const computed = computeRadar(content)
 
   // 评分：同文同分（确定性）。完全由文本启发式计算得出，不随 AI 输出波动；
@@ -808,17 +810,20 @@ export function normalizeReview(parsed, content, opts = {}) {
     ? parsed.styleColor
     : null
 
+  // 兜底清理：prompt 里的内部代号（S句）绝不能泄漏到读者可见的文本里
+  const scrubInternal = (t) => String(t || '').replace(/S\s*句/g, '升华句').trim()
+
   return {
     author: authors[0],
     authors,
-    annotations,
+    annotations: annotations.map(a => ({ ...a, comment: scrubInternal(a.comment) })),
     continuation: parsed?.continuation || '',
     bestQuote,
-    textOverview: parsed?.textOverview || '',
-    literaryAnalysis: parsed?.literaryAnalysis || '',
-    comparison: parsed?.comparison || parsed?.hardIssues || '',
-    conclusion: scrubBlessing(parsed?.conclusion),
-    emotionalClosing: parsed?.emotionalClosing || '',
+    textOverview: scrubInternal(parsed?.textOverview),
+    literaryAnalysis: scrubInternal(parsed?.literaryAnalysis),
+    comparison: scrubInternal(parsed?.comparison || parsed?.hardIssues || ''),
+    conclusion: scrubInternal(scrubBlessing(parsed?.conclusion)),
+    emotionalClosing: scrubInternal(parsed?.emotionalClosing),
     toneMetaphor: String(parsed?.toneMetaphor || '').replace(/[（）()]/g, '').trim(),
     tone: TONES.includes(parsed?.tone) ? parsed.tone : 'melancholy',
     styleColor,
@@ -842,26 +847,50 @@ async function callXfyun(prompt, temperature) {
     }),
   })
 
+  const text = await response.text()
+  let data = null
+  try { data = JSON.parse(text) } catch { /* 非 JSON 响应，按原样处理 */ }
+
+  // 星辰 MaaS 的业务错误码：即使 HTTP 200，body 里也可能带 code != 0
+  // （如 {"code":3000,"message":"..."}）。必须在这里拦截，否则会落到
+  // "AI 返回为空" 的误导性提示。
+  if (data && typeof data.code === 'number' && data.code !== 0) {
+    const bizMsg = data.message || 'AI 服务暂时不可用，请稍后重试'
+    console.error('XFYUN business error:', data.code, bizMsg)
+    const err = new Error(`AI 服务调用失败（${data.code}）：${bizMsg}`)
+    err.status = data.code
+    err.retryable = [3000, 3004, 3005, 4002, 4003].includes(data.code)
+    throw err
+  }
+  if (data?.error?.message) {
+    const msg = data.error.message
+    console.error('XFYUN API Error:', response.status, msg)
+    const err = new Error(`AI 服务返回：${msg}`)
+    err.status = response.status
+    err.retryable = response.status >= 500 || response.status === 429
+    throw err
+  }
   if (!response.ok) {
-    const errText = await response.text()
-    console.error('XFYUN API Error:', response.status, errText)
+    console.error('XFYUN API Error:', response.status, text)
     let message = `AI 服务调用失败（${response.status}），请检查 API Key 与模型 ID 配置`
     try {
-      const err = JSON.parse(errText)
+      const err = JSON.parse(text)
       if (err?.error?.message) message = `AI 服务返回：${err.error.message}`
+      else if (err?.message) message = `AI 服务返回：${err.message}`
     } catch {
-      if (errText) message = `AI 服务返回：${errText.slice(0, 300)}`
+      if (text) message = `AI 服务返回：${text.slice(0, 300)}`
     }
     const err = new Error(message)
     err.status = response.status
+    err.retryable = response.status >= 500 || response.status === 429
     throw err
   }
 
-  const data = await response.json()
-  const rawContent = data.choices?.[0]?.message?.content
+  const rawContent = data?.choices?.[0]?.message?.content
   if (!rawContent) {
     const err = new Error('AI 返回为空，请重试')
     err.status = 502
+    err.retryable = true
     throw err
   }
   return rawContent
@@ -898,8 +927,7 @@ function buildHeuristicReview(content, title, author, masterpiece = false) {
     literaryAnalysis: '文字的语感与意象经营都很用心，个别处可再收敛一些直白抒情，让余味更绵长。',
     comparison: '若放在沈从文、汪曾祺一脉来读，你的句子在节奏上是接近的，只是意象还略欠一层打磨，再写得含蓄些会更耐读。',
     conclusion: '整体可用，建议在情绪表达上再克制一分。',
-    emotionalClosing: '愿你的笔，落处皆是温柔。',
-    toneMetaphor: '暮色的河岸',
+    emotionalClosing: '愿你的笔，落处皆是温柔。',    toneMetaphor: '暮色的河岸',
     tone,
     styleColor: null,
     score,
@@ -975,8 +1003,8 @@ export default async function handler(req) {
         if (parsed) break
       } catch (err) {
         console.error('Review attempt failed (temp=' + t + '):', err.message)
-        // 网络/服务错误直接抛出；JSON 格式错误继续重试
-        if (!err.message.includes('JSON')) throw err
+        // 服务端/业务错误（如 3000 之类的瞬时错误）也会重试；明确的配置类错误（401/403）直接抛出
+        if (!err.message.includes('JSON') && !err.retryable) throw err
       }
     }
 
