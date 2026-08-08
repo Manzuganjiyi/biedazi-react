@@ -47,7 +47,10 @@
   }
 
   .glass-card {
-    @apply bg-white/60 backdrop-blur-xl rounded-xl border border-white/30;
+    @apply rounded-xl;
+    background: linear-gradient(180deg, #FCFAF6, #F7F3EC);
+    border: 1px solid rgba(139, 115, 85, 0.18);
+    box-shadow: 0 2px 10px rgba(120, 100, 75, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.7);
   }
 
   .meta-input {
@@ -99,11 +102,12 @@
   animation: editorScan 2.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
 }
 
-/* 水彩浸润：整幅色带由右向左铺开（clip-path，GPU），铺开后留在纸面 */
-@keyframes watercolor-sweep {
-  0%   { clip-path: inset(0 0 0 100%); opacity: 0; }
-  18%  { opacity: 1; }
-  100% { clip-path: inset(0 0 0 0); opacity: 1; }
+/* 水彩浸润：色墨自落点向外缓慢洇开（transform scale，GPU），铺开后留在纸面 */
+@keyframes watercolor-soak {
+  0%   { transform: scale(0.18); opacity: 0; }
+  14%  { opacity: 0.95; }
+  62%  { transform: scale(1); opacity: 1; }
+  100% { transform: scale(1.04); opacity: 1; }
 }
 
 /* 飞溅色斑：从右框右侧甩入、向左飞落并晕开，最终落在编辑区（左）纸面（不消失） */
@@ -173,8 +177,7 @@ mark.anno-mark .anno-badge {
   .animate-ping,
   .animate-bounce,
   .animate-spin,
-  .animate-brush-sweep,
-  .ink-bleed {
+  .animate-brush-sweep {
     animation: none !important;
   }
   .anno-mark {
@@ -218,6 +221,12 @@ mark.anno-mark .anno-badge {
 @keyframes ink-breathe {
   0%, 100% { transform: scale(0.98); opacity: 0.85; }
   50%      { transform: scale(1.06); opacity: 1; }
+}
+
+/* 水波：每 5% 从水印数字后泛起一圈极淡的水波，缓慢扩散淡去（transform，GPU） */
+@keyframes water-wave {
+  0%   { transform: scale(0.45); opacity: 0.5; }
+  100% { transform: scale(1.5); opacity: 0; }
 }
 
 /* 落笔进度：一支毛笔从左向右掠过 */

@@ -278,7 +278,7 @@ export default function EditorCanvas() {
         height: !showContinuation && (showBottomBar || (isMobile && isReviewing))
           ? `calc(100% - ${bottomBarH}vh)`
           : '100%',
-        transition: 'margin-right 0.5s cubic-bezier(0.22, 1, 0.36, 1), height 0.5s cubic-bezier(0.22, 1, 0.36, 1)',
+        transition: 'margin-right 0.5s cubic-bezier(0.23, 1, 0.32, 1), height 0.5s cubic-bezier(0.23, 1, 0.32, 1)',
       }}
     >
       <div

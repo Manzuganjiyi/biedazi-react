@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useWriterStore } from '../store/useWriterStore'
-import { motion, AnimatePresence, useReducedMotion } from 'framer-motion'
-import { ArrowLeft, Share2, Check, AlertCircle, X, Scan, BookOpen, Users, MessageSquare, PenLine, Sparkles } from 'lucide-react'
+import { motion, AnimatePresence, useReducedMotion, useSpring, useMotionValueEvent } from 'framer-motion'
+import { ArrowLeft, Share2, Check, AlertCircle, X, Scan, BookOpen, Users, MessageSquare, PenLine } from 'lucide-react'
 import { analyzeTextAPI, TONE_COLORS } from '../data/mockReviews'
 import QRCode from 'qrcode'
 
@@ -14,6 +14,24 @@ const hexToRgba = (hex, alpha = 0.55) => {
 
 // 统一的强 ease-out 曲线（进入/退出类动画），避免散落的默认缓动
 const EASE_OUT = [0.23, 1, 0.32, 1]
+
+// 平滑变化的百分比数字：进度以弹簧滚动呈现，数字逐帧圆整，避免跳字
+function SmoothPercent({ value }) {
+  const spring = useSpring(0, { stiffness: 90, damping: 24 })
+  const [display, setDisplay] = useState(0)
+  useEffect(() => {
+    spring.set(Math.max(0, Math.min(100, Number(value) || 0)))
+  }, [value, spring])
+  useMotionValueEvent(spring, 'change', (v) => setDisplay(Math.round(v)))
+  return (
+    <span
+      className="font-serif-cn text-editor-accent leading-none tabular-nums"
+      style={{ fontSize: 24, fontWeight: 600, letterSpacing: '0.02em' }}
+    >
+      {display}
+    </span>
+  )
+}
 
 // 将批注按句拆分成分段，避免文本臃肿（最多 3 段）
 const splitComment = (text, maxSeg = 3) => {
@@ -172,37 +190,54 @@ function ScoreCard({ score, radar, fill, toneMetaphor }) {
 function ThinkingProcess({ steps, activeIndex, progress }) {
   const icons = [Scan, BookOpen, Users, MessageSquare, PenLine]
 
+  const pct = progress || 0
+  const waveStep = Math.floor(pct / 5) * 5
+  // 每跨过 5% 边界触发一圈水波（key 变化让动画重放）
+  const [waveKey, setWaveKey] = useState(0)
+  useEffect(() => {
+    setWaveKey(k => k + 1)
+  }, [waveStep])
+
   return (
     <motion.div
-      className="glass-card p-5 mb-4 overflow-hidden relative"
+      className="p-5 mb-4 overflow-hidden relative rounded-xl"
+      style={{
+        background: 'linear-gradient(180deg, #FCFAF6, #F7F3EC)',
+        border: '1px solid rgba(139,115,85,0.18)',
+        boxShadow: '0 2px 10px rgba(120,100,75,0.08), inset 0 1px 0 rgba(255,255,255,0.7)',
+      }}
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, ease: EASE_OUT }}
     >
-      {/* 顶部墨渍：中心湿痕缓慢起伏，三层水墨晕染环向外扩散，替代原来的硬边雷达 */}
-      <div className="relative h-24 mb-4 flex items-center justify-center">
-        {/* 水墨晕染环：由中心向外扩散并淡去（无硬边，像纸上洇开） */}
-        <div className="absolute w-16 h-16 rounded-full ink-bleed" style={{ background: 'radial-gradient(circle, rgba(74,74,74,0.16), transparent 70%)', animation: 'ink-bleed 2.4s cubic-bezier(0.4,0,0.2,1) infinite' }} />
-        <div className="absolute w-16 h-16 rounded-full ink-bleed" style={{ background: 'radial-gradient(circle, rgba(74,74,74,0.12), transparent 70%)', animation: 'ink-bleed 2.4s cubic-bezier(0.4,0,0.2,1) 0.8s infinite' }} />
-        <div className="absolute w-16 h-16 rounded-full ink-bleed" style={{ background: 'radial-gradient(circle, rgba(74,74,74,0.09), transparent 70%)', animation: 'ink-bleed 2.4s cubic-bezier(0.4,0,0.2,1) 1.6s infinite' }} />
-        {/* 中心墨渍：纸上湿痕般缓慢呼吸 */}
-        <div
-          className="relative w-16 h-16 rounded-full shadow-sm"
-          style={{
-            background: 'radial-gradient(circle at 40% 35%, rgba(255,255,255,0.9), rgba(74,74,74,0.12) 58%, rgba(74,74,74,0.28) 100%)',
-            animation: 'ink-breathe 2.6s ease-in-out infinite',
-          }}
-        >
-          <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-editor-accent font-serif-cn">
-            {progress || 0}%
-          </div>
-        </div>
-      </div>
-
-      <div className="relative mb-2">
+      {/* 顶部：标题 + 平滑变化的百分比数字。数字悬在标题右端，每跨 5% 从数字后泛起一圈极淡水波；
+          数字本身用弹簧平滑滚动，逐帧圆整，不跳字 */}
+      <div className="relative mb-3 flex items-center justify-between select-none">
         <div className="text-xs font-medium text-editor-secondary flex items-center gap-1.5 font-serif-cn">
-          <Sparkles size={12} className="text-editor-accent" />
+          <PenLine size={12} className="text-editor-accent" />
           AI 解读进行中
+        </div>
+        <div className="relative flex items-baseline gap-1 pr-0.5">
+          {/* 水波层：以数字中心为源点，每 5% 泛起一圈极淡的水波 */}
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            {waveKey > 0 && (
+              <div
+                key={waveKey}
+                className="absolute"
+                style={{
+                  width: 56,
+                  height: 56,
+                  marginLeft: -28,
+                  marginTop: -28,
+                  borderRadius: '50%',
+                  background: 'radial-gradient(circle, rgba(74,74,74,0.12) 0%, rgba(74,74,74,0.05) 42%, transparent 72%)',
+                  animation: 'water-wave 1.6s cubic-bezier(0.23, 1, 0.32, 1) forwards',
+                }}
+              />
+            )}
+          </div>
+          <SmoothPercent value={pct} />
+          <span className="text-sm text-editor-secondary font-serif-cn leading-none">%</span>
         </div>
         {/* 落笔墨痕：标签下一条墨线自左向右扫过，与整站毛笔意象呼应 */}
         <div className="absolute -bottom-1 left-0 h-[2px] w-16 overflow-hidden rounded-full">
@@ -228,20 +263,22 @@ function ThinkingProcess({ steps, activeIndex, progress }) {
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: i * 0.12, duration: 0.3 }}
             >
-              <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-colors duration-300 font-serif-cn
-                ${done ? 'bg-editor-accent text-white' : ''}
-                ${active ? 'bg-editor-accent text-white' : 'bg-black/5 text-editor-secondary/60'}`}
+              <div
+                className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 transition-colors duration-300 font-serif-cn
+                  ${done ? 'bg-editor-accent text-white' : ''}
+                  ${active ? 'bg-editor-accent text-white' : 'bg-black/5 text-editor-secondary/60'}`}
+                style={active ? { animation: 'ink-breathe 2.6s ease-in-out infinite' } : undefined}
               >
-                {done ? <Check size={13} /> : <Icon size={13} className={active ? 'animate-bounce' : ''} />}
+                {done ? <Check size={13} /> : <Icon size={13} />}
               </div>
               <span className={`text-sm font-serif-cn ${done ? 'text-editor-secondary/70' : active ? 'text-editor-text' : 'text-editor-secondary/40'}`}>
                 {step}
               </span>
               {active && (
                 <span className="ml-auto flex items-center gap-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-editor-accent animate-bounce" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-editor-accent animate-bounce" style={{ animationDelay: '0.15s' }} />
-                  <span className="w-1.5 h-1.5 rounded-full bg-editor-accent animate-bounce" style={{ animationDelay: '0.3s' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-editor-accent" style={{ animation: 'ink-breathe 2.4s ease-in-out infinite' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-editor-accent" style={{ animation: 'ink-breathe 2.4s ease-in-out infinite', animationDelay: '0.4s' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-editor-accent" style={{ animation: 'ink-breathe 2.4s ease-in-out infinite', animationDelay: '0.8s' }} />
                 </span>
               )}
             </motion.div>
@@ -249,7 +286,7 @@ function ThinkingProcess({ steps, activeIndex, progress }) {
         })}
       </div>
       {/* 落笔进度：底部一条毛笔般的墨痕从右向左扫过（与整体纸张气质呼应） */}
-      <div className="relative h-1.5 mt-3 overflow-hidden rounded-full bg-black/5">
+      <div className="relative h-1.5 mt-3 overflow-hidden rounded-full" style={{ background: 'rgba(139,115,85,0.12)' }}>
         <div
           className="absolute inset-0"
           style={{
@@ -339,7 +376,7 @@ function AnnotationList({ annotations, onAnchorClick, reading }) {
   return (
     <motion.div
       className={`p-4 mb-3 rounded-xl border transition-[background-color,border-color] duration-500
-        ${reading ? 'bg-white/30 border-white/20 backdrop-blur-md' : 'bg-white/60 border-white/30 backdrop-blur-xl'}`}
+        ${reading ? 'bg-[#FDFBF5]/90 border-editor-border/70' : 'bg-[#FDFBF5]/70 border-editor-border/50'}`}
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4, delay: 0.15, ease: EASE_OUT }}
@@ -543,7 +580,7 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
           </div>
           <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, paddingTop: 14 }}>
             <ShareQrCode />
-            <span style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', height: 44, fontSize: 9, color: sub, letterSpacing: 2, marginLeft: 6, lineHeight: 1 }}>
+            <span style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between', alignItems: 'center', height: 44, fontSize: 9, color: sub, letterSpacing: 2, marginLeft: 6, lineHeight: 1, marginTop: -4.5 }}>
               {'扫码体验'.split('').map((ch, i) => <span key={i}>{ch}</span>)}
             </span>
           </div>
@@ -611,25 +648,33 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
 })
 
 // ==================== 水彩浸润层 ====================
-// 结果呈现瞬间，一束水彩从右侧批注栏的右侧甩入编辑区：先是一整幅色带
-// 由右向左铺开（clip-path），同时多个色斑从右侧"飞落"（translateX 位移）
-// 向左晕开。动画结束后整层沉降为淡淡的持久底色（不消失），让水彩真正
-// 沁进纸里，符合"浸润后保持"的观感。
+// 结果呈现瞬间，水彩"浸润"进编辑区（非长方形拖过）：先有少量色斑从右侧批注栏
+// 的右侧甩入编辑区（translateX 飞落），同时几团不规则色墨自落点向外缓慢洇开
+// （transform scale 扩散 + feTurbulence 位移滤镜，边缘自然晕染），像水彩真正
+// 沁进纸里。动画结束后整层沉降为淡淡的持久底色（不消失），符合"浸润后保持"。
 // right（vw）：色斑落点相对右侧视口的距离，分布在编辑区（左 ~60%）而非批注栏。
 const SPLASH_BLOTS = [
-  { top: '8%',  size: 340, right: 58, delay: 0.03, dur: 1.15, o: 0.38 },
-  { top: '28%', size: 470, right: 42, delay: 0.2,  dur: 1.45, o: 0.3 },
-  { top: '54%', size: 300, right: 40, delay: 0.38, dur: 1.25, o: 0.34 },
-  { top: '74%', size: 430, right: 55, delay: 0.14, dur: 1.5,  o: 0.26 },
+  { top: '8%',  size: 340, right: 58, shape: '44% 56% 52% 48% / 50% 44% 56% 50%', delay: 0.03, dur: 1.15, o: 0.38 },
+  { top: '28%', size: 470, right: 42, shape: '52% 48% 45% 55% / 48% 54% 46% 52%', delay: 0.2,  dur: 1.45, o: 0.3 },
+  { top: '54%', size: 300, right: 40, shape: '46% 54% 56% 44% / 52% 46% 54% 48%', delay: 0.38, dur: 1.25, o: 0.34 },
+  { top: '74%', size: 430, right: 55, shape: '50% 50% 46% 54% / 44% 52% 48% 56%', delay: 0.14, dur: 1.5,  o: 0.26 },
+]
+
+// 浸润色墨：自落点向外洇开的大团不规则色块，覆盖编辑区（左 ~60%），取代原来的整幅色带拖过
+// 时长进一步放缓到 4.0~6.8s + 渐变长尾，外围再叠一层微弱光晕，像水彩在纸上极缓地晕开
+const SOAK_BLOTS = [
+  { left: '4%',  top: '8%',  w: '52vw', h: '56vh', shape: '46% 54% 52% 48% / 44% 46% 54% 56%', origin: '38% 42%', delay: 0.3,  dur: 4.0, o: 0.2 },
+  { left: '24%', top: '34%', w: '46vw', h: '52vh', shape: '52% 48% 45% 55% / 50% 55% 45% 50%', origin: '55% 38%', delay: 0.7,  dur: 6.8, o: 0.15 },
+  { left: '8%',  top: '58%', w: '50vw', h: '46vh', shape: '44% 56% 50% 50% / 48% 42% 58% 52%', origin: '45% 55%', delay: 1.1,  dur: 5.6, o: 0.14 },
 ]
 
 function WatercolorSplash({ color }) {
   // 水彩纹理：feTurbulence + feDisplacementMap 让色斑边缘呈自然晕染
   const textureId = React.useMemo(() => `wc-${Math.random().toString(36).slice(2, 8)}`, [])
-  // 飞溅动画（约 2s）结束后，整层沉降为持久淡色，不再消失
+  // 飞溅 + 极缓浸润（最长约 7.9s）结束后，整层沉降为持久淡色，不再消失
   const [settled, setSettled] = useState(false)
   useEffect(() => {
-    const t = setTimeout(() => setSettled(true), 2100)
+    const t = setTimeout(() => setSettled(true), 7000)
     return () => clearTimeout(t)
   }, [])
 
@@ -650,17 +695,47 @@ function WatercolorSplash({ color }) {
         </defs>
       </svg>
 
-      {/* 整幅水彩：由右缘由右向左铺开覆盖全屏（含编辑区与批注栏），铺开后留驻 */}
-      <div
-        className="absolute right-0 top-0 bottom-0 left-0"
-        style={{
-          filter: `url(#${textureId})`,
-          background: `radial-gradient(ellipse at 0% 42%, ${hexToRgba(color, 0.5)}, ${hexToRgba(color, 0.18)} 46%, transparent 78%)`,
-          mixBlendMode: 'multiply',
-          clipPath: 'inset(0 100% 0 0)',
-          animation: 'watercolor-sweep 1.6s cubic-bezier(0.22, 1, 0.36, 1) forwards',
-        }}
-      />
+      {/* 浸润色墨：几团不规则色墨自落点向外缓慢洇开（scale 扩散），覆盖编辑区，
+          取代原来的"整幅色带被拖过去"；渐变带长尾 + 外围微弱光晕，边缘经纹理滤镜自然晕染 */}
+      {SOAK_BLOTS.map((s, i) => (
+        <React.Fragment key={`soak-${i}`}>
+          {/* 微弱晕染光晕：比墨团更大的极淡外围，随墨团慢半拍浮现，像水色向外洇散 */}
+          <div
+            className="absolute"
+            style={{
+              left: `calc(${s.left} - 9vw)`,
+              top: `calc(${s.top} - 9vh)`,
+              width: `calc(${s.w} + 18vw)`,
+              height: `calc(${s.h} + 18vh)`,
+              borderRadius: s.shape,
+              background: `radial-gradient(ellipse at 42% 38%, ${hexToRgba(color, s.o * 0.14)} 0%, transparent 64%)`,
+              mixBlendMode: 'multiply',
+              filter: `url(#${textureId})`,
+              transformOrigin: s.origin,
+              transform: 'scale(0.3)',
+              animation: `watercolor-soak ${s.dur}s cubic-bezier(0.23, 1, 0.32, 1) ${s.delay + 0.2}s forwards`,
+              willChange: 'transform, opacity',
+            }}
+          />
+          <div
+            className="absolute"
+            style={{
+              left: s.left,
+              top: s.top,
+              width: s.w,
+              height: s.h,
+              borderRadius: s.shape,
+              background: `radial-gradient(ellipse at 42% 38%, ${hexToRgba(color, s.o)} 0%, ${hexToRgba(color, s.o * 0.5)} 44%, ${hexToRgba(color, s.o * 0.2)} 66%, transparent 86%)`,
+              mixBlendMode: 'multiply',
+              filter: `url(#${textureId})`,
+              transformOrigin: s.origin,
+              transform: 'scale(0.18)',
+              animation: `watercolor-soak ${s.dur}s cubic-bezier(0.23, 1, 0.32, 1) ${s.delay}s forwards`,
+              willChange: 'transform, opacity',
+            }}
+          />
+        </React.Fragment>
+      ))}
 
       {/* 错落飞溅的色斑：从右侧之外甩入、向左飞落并晕开，落点散布在编辑区（左），边缘经纹理滤镜呈水彩晕染 */}
       {SPLASH_BLOTS.map((b, i) => (
@@ -672,12 +747,13 @@ function WatercolorSplash({ color }) {
             top: b.top,
             width: b.size,
             height: b.size,
-            borderRadius: '50%',
+            borderRadius: b.shape,
             background: `radial-gradient(circle, ${hexToRgba(color, b.o)} 0%, ${hexToRgba(color, b.o * 0.4)} 42%, transparent 72%)`,
             mixBlendMode: 'multiply',
             filter: `url(#${textureId})`,
-            transform: 'translateX(26vw)',
-            animation: `watercolor-blot ${b.dur}s cubic-bezier(0.22, 1, 0.36, 1) ${b.delay}s forwards`,
+            transform: 'translateX(70vw)',
+            opacity: 0,
+            animation: `watercolor-blot ${b.dur}s cubic-bezier(0.23, 1, 0.32, 1) ${b.delay}s forwards`,
             willChange: 'transform, opacity',
           }}
         />
@@ -1256,7 +1332,7 @@ export default function ReviewPanel() {
       {splashOn && !isMobile && !reduceMotion && (
         <WatercolorSplash key={splashKey} color={toneColor} />
       )}
-      {/* 右侧批注栏：浮动玻璃卡片。未升起下边栏时占满右列高度，不遮住编辑器全文；下边栏升起时上移腾位，编辑器同时向左上压缩；切到续写模式后滑出 */}
+      {/* 右侧批注栏：浮动纸面卡片。未升起下边栏时占满右列高度，不遮住编辑器全文；下边栏升起时上移腾位，编辑器同时向左上压缩；切到续写模式后滑出 */}
       <div
         className={`fixed right-4 z-40 flex flex-col rounded-2xl overflow-hidden transition-[transform,bottom] duration-500
           ${isReviewing && !isClosing && !showContinuation ? 'translate-x-0' : 'translate-x-full'}
@@ -1266,11 +1342,9 @@ export default function ReviewPanel() {
           width: 400,
           maxWidth: '38vw',
           bottom: showResults && showBottomBar ? `calc(${bottomBarH}vh + 12px)` : 16,
-          background: 'rgba(255,255,255,0.72)',
-          border: '1px solid rgba(255,255,255,0.55)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          boxShadow: '0 4px 24px rgba(0,0,0,0.12)',
+          background: 'linear-gradient(180deg, #FCFAF6, #F8F5EE)',
+          border: '1px solid rgba(139,115,85,0.18)',
+          boxShadow: '0 10px 40px rgba(120,100,75,0.14), inset 0 1px 0 rgba(255,255,255,0.7)',
         }}
       >
         {/* 粉刷动画层 - 仅在分析完成、呈现结果时从原色涂刷至代表风格的颜色 */}
@@ -1412,7 +1486,7 @@ export default function ReviewPanel() {
             initial={{ opacity: 0, y: 64 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 64 }}
-            transition={{ duration: 0.5, ease: [0.32, 0.72, 0, 1] }}
+            transition={{ duration: 0.5, ease: EASE_OUT }}
           >
           {/* 与右侧批注栏协调的色调描边：从右往左由深到浅，错落呼应 */}
           <div className="absolute inset-x-0 top-0 h-1 pointer-events-none" style={{ background: `linear-gradient(to left, ${hexToRgba(toneColor, 0.85)}, transparent 70%)` }} />
