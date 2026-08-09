@@ -32,60 +32,8 @@
 - **作家库**：`api/writers.js` 内置 120 位中外作家 DNA。每个作家有 7 大风格维度（主题/叙事/语言/意象节律/结构/情感温度/文化语境）的分层标签，标签按层级结构组织（维度 → 极/类 → 标签，支持近邻关联）
 - **匹配算法**：`hierarchicalSimilarity` 对同一维度做层级加权匹配，同一维度内关联标签（如 冷↔沉郁）可获部分相似加分
 
-## 本地开发
 
-需要 Node.js 18+。
 
-```bash
-# 安装依赖
-npm install
-
-# 复制环境变量模板（API Key 见下）
-copy .env.example .env
-
-# 终端 1：前端 Vite 开发服务器
-npm run dev
-
-# 终端 2：本地 API 服务（端口 3000，前端代理 /api 到此）
-npm run dev:api
-```
-
-> ⚠️ 两个命令**必须同时运行**。只开 Vite 时 `/api` 会走代理到 3000，若 `dev:api` 未启动，分析会报错。
-
-## 配置环境变量
-
-`api/review.js` 通过 Vercel 环境变量读取（本地开发时读取 `.env`）：
-
-| 变量 | 必填 | 说明 |
-|---|---|---|
-| `XFYUN_API_KEY` | ✅ | 讯飞星辰 MaaS 服务接口认证信息里的 API Key |
-| `XFYUN_MODEL` | 否 | 模型 ID，如 `xop35qwen2b` |
-| `XFYUN_BASE_URL` | 否 | 接口地址，默认 `https://maas-api.cn-huabei-1.xf-yun.com/v2` |
-
-### 如何获取 API Key 和模型 ID
-
-1. 登录讯飞开放平台，进入 **星辰 MaaS 平台**（maas.cn-huabei-1.xf-yun.com）
-2. 选择/创建模型，在模型详情页点击【API调用】
-3. 从「服务接口认证信息」复制 API Key 填入 `XFYUN_API_KEY`
-4. 从「API调用」弹窗复制 `modelId` 填入 `XFYUN_MODEL`
-
-## 部署
-
-两种通道独立部署，都靠推送 `main` 分支 + 本地 CLI 完成：
-
-### 1. API（Vercel，必须）
-
-`api/` 目录以 Serverless Functions 形式运行在 Vercel。在 Vercel 项目后台配置上表环境变量后：
-
-```bash
-vercel --prod --yes
-```
-
-### 2. 前端（GitHub Pages，可选）
-
-`.github/workflows/deploy.yml` 在每次 push `main` 时自动构建 `dist` 并发布到 GitHub Pages。
-
-> 两者并行：Vercel 同时托管 API 与前端页面；GitHub Pages 是前端静态副本。
 
 ## 目录结构
 
@@ -100,7 +48,3 @@ scripts/
 src/                前端 React 应用
 docs/               迭代总结与设计决策
 ```
-
-## 版本号
-
-采用 `X.YZ<字母>` 规则（如 `1.11a`），数字部分随部署 `+0.01`，字母随未部署修改顺延。详见 `AGENTS.md`。
