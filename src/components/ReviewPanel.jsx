@@ -769,7 +769,7 @@ export default function ReviewPanel() {
     toneColor, closeReview, saveReview, setStyleColor, setThinking,
     showBottomBar, setShowBottomBar, setResultsVisible, closeRequestId,
     bottomBarH, setBottomBarH, showContinuation, setShowContinuation,
-    cachedReview, setCachedReview,
+    cachedReview, setCachedReview, updateActiveArticle,
   } = useWriterStore()
 
   const [activeStep, setActiveStep] = useState(0)
@@ -827,6 +827,9 @@ export default function ReviewPanel() {
       setResultsVisible(true)
       return
     }
+
+    // 重新分析：先清空上一轮解读（含内联续写），避免旧内容残留/累积
+    updateActiveArticle({ review: null, reviewFp: null })
 
     // 视觉推进与真实 API 调用并行：按 20s 名义时长均衡分配 5 个阶段
     const TOTAL_MS = 20000

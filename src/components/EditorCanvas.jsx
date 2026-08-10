@@ -318,13 +318,23 @@ export default function EditorCanvas() {
               onInput={handleInput}
               onKeyDown={handleKeyDown}
             />
-            {/* JS 控制的 placeholder */}
+            {/* JS 控制的 placeholder：淡色使用说明，输入任何文字后自动消失 */}
             {isEmpty && (
-              <div 
-                className="absolute top-0 left-0 pointer-events-none text-editor-secondary/50 text-base leading-editor"
+              <div
+                className="absolute top-0 left-0 right-0 pointer-events-none select-none"
                 style={{ zIndex: 1 }}
               >
-                开始写作...
+                <div className="font-serif-cn text-xl leading-normal text-editor-secondary/45">
+                  写下你的故事，或粘贴一段文字
+                </div>
+                <div className="mt-3 font-serif-cn text-sm leading-relaxed text-editor-secondary/35">
+                  写完点击右下角的圆点「开始解读」，AI 会像资深编辑一样批注原文、
+                  给出相似作家与深入总评。
+                </div>
+                <div className="mt-3 font-serif-cn text-sm leading-relaxed text-editor-secondary/35">
+                  · 推荐输入 500~3000 字，篇幅稍长的片段效果更佳
+                  <br />· 解读过后继续修改，可再次解读，解读会随正文更新
+                </div>
               </div>
             )}
             <GhostTextOverlay />

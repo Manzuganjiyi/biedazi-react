@@ -66,6 +66,12 @@
       "sourceType": "github",
       "skillPath": "skills/user-story/SKILL.md",
       "computedHash": "9e28e17b84283349caf00df9f0e4637acf6fd37e2691d7aeedc8793be27faf4f"
+    },
+    "writing-dna-skill": {
+      "source": "larashero3-dotcom/writing-dna-skill",
+      "sourceType": "github",
+      "skillPath": "SKILL.md",
+      "computedHash": "77c44ff72dae62d49eab975aec67c3da29c3d4dc53ae346e2aa9c99543a3e51c"
     }
   }
 }
