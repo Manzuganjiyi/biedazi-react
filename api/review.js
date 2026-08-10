@@ -10,6 +10,7 @@ const XFYUN_API_KEY = process.env.XFYUN_API_KEY
 
 export const config = {
   runtime: 'edge',
+  regions: ['hkg1'],
 }
 
 const TONES = ['melancholy', 'passionate', 'serene', 'mysterious', 'humorous']
