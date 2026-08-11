@@ -1323,7 +1323,6 @@ export default function ReviewPanel() {
               className="bg-white rounded-xl p-4 max-w-[300px] w-full"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="text-sm font-medium mb-3 text-center">点评分享图片（9:16）</div>
               <img src={shareImage} alt="点评分享" className="w-full rounded-lg border border-black/10" />
               <div className="text-[10px] text-editor-secondary text-center mt-2">
                 点「分享」发送给好友，或长按图片保存
@@ -1574,10 +1573,9 @@ export default function ReviewPanel() {
         >
           <div
             className="bg-white rounded-xl p-4 max-w-[300px] w-full"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="text-sm font-medium mb-3 text-center">点评分享图片（9:16）</div>
-            <img src={shareImage} alt="点评分享" className="w-full rounded-lg border border-black/10" />
+              onClick={(e) => e.stopPropagation()}
+            >
+              <img src={shareImage} alt="点评分享" className="w-full rounded-lg border border-black/10" />
             <div className="text-[10px] text-editor-secondary text-center mt-2">
               点「分享」发送给好友，或长按图片保存
             </div>
