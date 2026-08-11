@@ -5,7 +5,7 @@ import { AUTHOR_EMBEDDINGS } from './data/authorEmbeddings.js'
 import { ALL_WRITTEN } from './writers.js'
 import { embedText, embedReady as xfyunEmbedReady } from './xfyunEmbed.js'
 
-export const embedReady = () => xfyunEmbedReady() && Array.isArray(AUTHOR_EMBEDDINGS?.authors) && Object.keys(AUTHOR_EMBEDDINGS.authors).length > 0 && AUTHOR_EMBEDDINGS.dim > 0
+export const embedReady = () => xfyunEmbedReady() && typeof AUTHOR_EMBEDDINGS?.authors === 'object' && AUTHOR_EMBEDDINGS.authors !== null && Object.keys(AUTHOR_EMBEDDINGS.authors).length > 0 && AUTHOR_EMBEDDINGS.dim > 0
 
 const EMBED_TEXT_CAP = 1000 // 运行时 embed 正文截断字数（省 token）
 

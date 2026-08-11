@@ -1,15 +1,38 @@
 import React, { useRef, useEffect, useCallback, useState } from 'react'
 import { useWriterStore } from '../store/useWriterStore'
+import { useShallow } from 'zustand/react/shallow'
 import GhostTextOverlay from './GhostTextOverlay'
 
 export default function EditorCanvas() {
-  const { 
-    articles, activeArticleId, updateContent, updateMeta, 
+  const {
+    activeArticleId, updateContent, updateMeta,
     ghostActive, ghostText, acceptGhost, clearGhost,
     isThinking, resultsVisible, showBottomBar, isReviewing, bottomBarH,
     showContinuation, setShowContinuation, setShowBottomBar,
     continuationDimmed, setContinuationDimmed,
-  } = useWriterStore()
+  } = useWriterStore(useShallow((s) => ({
+    activeArticleId: s.activeArticleId,
+    updateContent: s.updateContent,
+    updateMeta: s.updateMeta,
+    ghostActive: s.ghostActive,
+    ghostText: s.ghostText,
+    acceptGhost: s.acceptGhost,
+    clearGhost: s.clearGhost,
+    isThinking: s.isThinking,
+    resultsVisible: s.resultsVisible,
+    showBottomBar: s.showBottomBar,
+    isReviewing: s.isReviewing,
+    bottomBarH: s.bottomBarH,
+    showContinuation: s.showContinuation,
+    setShowContinuation: s.setShowContinuation,
+    setShowBottomBar: s.setShowBottomBar,
+    continuationDimmed: s.continuationDimmed,
+    setContinuationDimmed: s.setContinuationDimmed,
+  })))
+
+  const activeArticle = useWriterStore(
+    useShallow((s) => s.articles.find((a) => a.id === s.activeArticleId))
+  )
 
   const editorRef = useRef(null)
   const titleRef = useRef(null)
@@ -31,13 +54,13 @@ export default function EditorCanvas() {
     return () => window.removeEventListener('resize', check)
   }, [])
 
-  const activeArticle = articles.find(a => a.id === activeArticleId)
   const annotations = activeArticle?.review?.annotations || []
 
   // 检查编辑器是否为空
   const checkEmpty = useCallback(() => {
     if (!editorRef.current) return true
-    const text = editorRef.current.innerText || ''
+    // textContent 不触发强制重排（innerText 会），且对 placeholder 判定足够
+    const text = editorRef.current.textContent || ''
     setIsEmpty(text.trim().length === 0)
   }, [])
 

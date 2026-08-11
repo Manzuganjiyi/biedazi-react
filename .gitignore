@@ -4,3 +4,4 @@
 node_modules
 dist
 api-server.log
+dev.log

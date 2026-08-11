@@ -52,7 +52,7 @@ export async function embedText(text, opts = {}) {
       messages: { encoding: 'utf8', compress: 'raw', format: 'json', status: 3, text: _b64str(inner) },
     },
   })
-  const resp = await fetch(buildSignedUrl(), {
+  const resp = await fetch(await buildSignedUrl(), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body,

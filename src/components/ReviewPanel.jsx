@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { useWriterStore } from '../store/useWriterStore'
+import { useShallow } from 'zustand/react/shallow'
 import { motion, AnimatePresence, useReducedMotion, useSpring, useMotionValueEvent } from 'framer-motion'
 import { ArrowLeft, Share2, Check, AlertCircle, X, Scan, BookOpen, Users, MessageSquare, PenLine } from 'lucide-react'
 import { analyzeTextAPI, TONE_COLORS } from '../data/mockReviews'
@@ -16,7 +17,7 @@ const hexToRgba = (hex, alpha = 0.55) => {
 const EASE_OUT = [0.23, 1, 0.32, 1]
 
 // 平滑变化的百分比数字：进度以弹簧滚动呈现，数字逐帧圆整，避免跳字
-function SmoothPercent({ value }) {
+const SmoothPercent = React.memo(function SmoothPercent({ value }) {
   const spring = useSpring(0, { stiffness: 90, damping: 24 })
   const [display, setDisplay] = useState(0)
   useEffect(() => {
@@ -31,7 +32,7 @@ function SmoothPercent({ value }) {
       {display}
     </span>
   )
-}
+})
 
 // 将批注按句拆分成分段，避免文本臃肿（最多 3 段）
 const splitComment = (text, maxSeg = 3) => {
@@ -78,7 +79,7 @@ const splitText = (text, target = 40, maxSeg = 12) => {
 }
 
 // ==================== 五星（五边形雷达）评级图：隐藏具体分数，仅保留图形 + 调性比喻 ====================
-function RadarChart({ data, size = 120 }) {
+const RadarChart = React.memo(function RadarChart({ data, size = 120 }) {
   const labels = ['语言', '结构', '意象', '情感', '创新']
   const values = [data.language, data.structure, data.imagery, data.emotion, data.innovation]
   const maxVal = 100
@@ -154,10 +155,10 @@ function RadarChart({ data, size = 120 }) {
       </svg>
     </div>
   )
-}
+})
 
 // ==================== 调性比喻文案（艺术衬线字体）====================
-function ToneMetaphor({ text, size = 19 }) {
+const ToneMetaphor = React.memo(function ToneMetaphor({ text, size = 19 }) {
   if (!text) return null
   return (
     <div
@@ -167,10 +168,10 @@ function ToneMetaphor({ text, size = 19 }) {
       {text}
     </div>
   )
-}
+})
 
 // ==================== 总分卡片（只显示五边形评级图 + 调性比喻，不显示数字）====================
-function ScoreCard({ score, radar, fill, toneMetaphor }) {
+const ScoreCard = React.memo(function ScoreCard({ score, radar, fill, toneMetaphor }) {
   return (
     <motion.div 
       className={`glass-card p-4 flex flex-col ${fill ? 'h-full' : 'mb-3'}`}
@@ -184,10 +185,10 @@ function ScoreCard({ score, radar, fill, toneMetaphor }) {
       </div>
     </motion.div>
   )
-}
+})
 
 // ==================== 思考过程（创意雷达扫视 + 均衡推进）====================
-function ThinkingProcess({ steps, activeIndex, progress }) {
+const ThinkingProcess = React.memo(function ThinkingProcess({ steps, activeIndex, progress }) {
   const icons = [Scan, BookOpen, Users, MessageSquare, PenLine]
 
   const pct = progress || 0
@@ -298,10 +299,10 @@ function ThinkingProcess({ steps, activeIndex, progress }) {
       </div>
     </motion.div>
   )
-}
+})
 
 // ==================== 相似度液体圆球（瓶中水占比，60% 即满）====================
-function LiquidBall({ percent, size = 42 }) {
+const LiquidBall = React.memo(function LiquidBall({ percent, size = 42 }) {
   const p = Math.max(2, Math.min(100, Number(percent) || 0))
   // 显示仍为真实百分比；液面按 60% 即灌满的比例填充，让比例关系更有辨识度
   const fillPct = Math.min(100, (p / 60) * 100)
@@ -340,10 +341,10 @@ function LiquidBall({ percent, size = 42 }) {
       <div className="text-[12px] font-semibold text-editor-accent leading-none">{p}%</div>
     </div>
   )
-}
+})
 
 // ==================== 相似作家卡片（三位，每位两部代表作）====================
-function AuthorsCard({ authors, fill }) {
+const AuthorsCard = React.memo(function AuthorsCard({ authors, fill }) {
   const list = Array.isArray(authors) && authors.length ? authors : []
   return (
     <motion.div 
@@ -369,10 +370,10 @@ function AuthorsCard({ authors, fill }) {
       ))}
     </motion.div>
   )
-}
+})
 
 // ==================== 批注列表（带锚定功能 + 分段呈现）====================
-function AnnotationList({ annotations, onAnchorClick, reading }) {
+const AnnotationList = React.memo(function AnnotationList({ annotations, onAnchorClick, reading }) {
   return (
     <motion.div
       className={`p-4 mb-3 rounded-xl border transition-[background-color,border-color] duration-500
@@ -414,10 +415,10 @@ function AnnotationList({ annotations, onAnchorClick, reading }) {
       })}
     </motion.div>
   )
-}
+})
 
 // ==================== 文本解读卡片（自然段落，无小标题）====================
-function SummaryCard({ review, fill }) {
+const SummaryCard = React.memo(function SummaryCard({ review, fill }) {
   const hasStructured = review?.textOverview || review?.literaryAnalysis || review?.comparison || review?.conclusion
   const [revealClosing, setRevealClosing] = useState(false)
   const contentRef = useRef(null)
@@ -497,13 +498,13 @@ function SummaryCard({ review, fill }) {
       )}
     </motion.div>
   )
-}
+})
 
 // ==================== 9:16 分享卡片（导出图片用）====================
 // 右上角二维码：指向官网 www.bidazi.cloud，仅绘制墨色码点于透明底，直接融入卡片底色
 const SHARE_URL = 'https://www.bidazi.cloud'
 
-function ShareQrCode({ size = 44 }) {
+const ShareQrCode = React.memo(function ShareQrCode({ size = 44 }) {
   const [dataUrl, setDataUrl] = useState('')
   useEffect(() => {
     let cancelled = false
@@ -531,7 +532,7 @@ function ShareQrCode({ size = 44 }) {
   }, [size])
   if (!dataUrl) return <div style={{ width: size, height: size }} />
   return <img src={dataUrl} alt="扫码进入笔搭子" style={{ width: size, height: size, display: 'block' }} />
-}
+})
 
 const ShareCard = React.forwardRef(function ShareCard({ review, article, color }, ref) {
   // 总评以自然段落呈现，无小标题
@@ -668,7 +669,7 @@ const SOAK_BLOTS = [
   { left: '8%',  top: '58%', w: '50vw', h: '46vh', shape: '44% 56% 50% 50% / 48% 42% 58% 52%', origin: '45% 55%', delay: 1.1,  dur: 5.6, o: 0.14 },
 ]
 
-function WatercolorSplash({ color }) {
+const WatercolorSplash = React.memo(function WatercolorSplash({ color }) {
   // 水彩纹理：feTurbulence + feDisplacementMap 让色斑边缘呈自然晕染
   const textureId = React.useMemo(() => `wc-${Math.random().toString(36).slice(2, 8)}`, [])
   // 飞溅 + 极缓浸润（最长约 7.9s）结束后，整层沉降为持久淡色，不再消失
@@ -760,17 +761,39 @@ function WatercolorSplash({ color }) {
       ))}
     </div>
   )
-}
+})
 
 // ==================== 主面板 ====================
 export default function ReviewPanel() {
+  // 只订阅影响渲染的字段；动作函数稳定，用 getState 取（不触发重渲染）。
+  // activeArticle 用 useShallow 派生：打字时 articles 变化但引用相同则不重渲染。
   const { 
-    isReviewing, isThinking, thinkingSteps, activeArticleId, articles,
-    toneColor, closeReview, saveReview, setStyleColor, setThinking,
+    isReviewing, isThinking, thinkingSteps, activeArticleId, toneColor,
     showBottomBar, setShowBottomBar, setResultsVisible, closeRequestId,
     bottomBarH, setBottomBarH, showContinuation, setShowContinuation,
-    cachedReview, setCachedReview, updateActiveArticle,
-  } = useWriterStore()
+    cachedReview,
+  } = useWriterStore(useShallow((s) => ({
+    isReviewing: s.isReviewing,
+    isThinking: s.isThinking,
+    thinkingSteps: s.thinkingSteps,
+    activeArticleId: s.activeArticleId,
+    toneColor: s.toneColor,
+    showBottomBar: s.showBottomBar,
+    setShowBottomBar: s.setShowBottomBar,
+    setResultsVisible: s.setResultsVisible,
+    closeRequestId: s.closeRequestId,
+    bottomBarH: s.bottomBarH,
+    setBottomBarH: s.setBottomBarH,
+    showContinuation: s.showContinuation,
+    setShowContinuation: s.setShowContinuation,
+    cachedReview: s.cachedReview,
+  })))
+
+  const { closeReview, saveReview, setStyleColor, setThinking, setCachedReview, updateActiveArticle } =
+    useWriterStore.getState()
+  const activeArticle = useWriterStore(
+    useShallow((s) => s.articles.find((a) => a.id === s.activeArticleId))
+  )
 
   const [activeStep, setActiveStep] = useState(0)
   const [thinkingProgress, setThinkingProgress] = useState(0)
@@ -791,8 +814,6 @@ export default function ReviewPanel() {
   const [splashKey, setSplashKey] = useState(0)
   const [splashOn, setSplashOn] = useState(false)
   const reduceMotion = useReducedMotion()
-
-  const activeArticle = articles.find(a => a.id === activeArticleId)
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768)
@@ -875,7 +896,7 @@ export default function ReviewPanel() {
     prevResults.current = showResults
   }, [showResults])
 
-  const handleAnchorClick = (index, quote) => {
+  const handleAnchorClick = useCallback((index, quote) => {
     const editor = document.getElementById('editor-content')
     if (!editor) return
 
@@ -905,9 +926,9 @@ export default function ReviewPanel() {
         break
       }
     }
-  }
+  }, [])
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     setIsClosing(true)
     setTimeout(() => {
       setIsClosing(false)
@@ -920,7 +941,7 @@ export default function ReviewPanel() {
       setError(null)
       closeReview()
     }, 400)
-  }
+  }, [closeReview, setResultsVisible, setShowBottomBar])
 
   // 动态分包在重新部署后可能因旧 chunk 失效而加载失败（Failed to fetch dynamically imported module），
   // 强制刷新一次拉取最新入口即可恢复；文章内容已持久化到 localStorage，刷新不丢数据
@@ -1162,11 +1183,18 @@ export default function ReviewPanel() {
     e.preventDefault()
     const el = e.currentTarget
     try { el.setPointerCapture(e.pointerId) } catch { /* ignore */ }
+    let rafId = null
     const move = (ev) => {
-      const vh = ((window.innerHeight - ev.clientY) / window.innerHeight) * 100
-      setBottomBarH(Math.round(vh))
+      // rAF 节流：pointermove 频率可能远高于渲染帧率，逐帧 setState 会让大组件全量重渲染
+      if (rafId != null) return
+      rafId = requestAnimationFrame(() => {
+        rafId = null
+        const vh = ((window.innerHeight - ev.clientY) / window.innerHeight) * 100
+        setBottomBarH(Math.round(vh))
+      })
     }
     const up = () => {
+      if (rafId != null) cancelAnimationFrame(rafId)
       try { el.releasePointerCapture(e.pointerId) } catch { /* ignore */ }
       el.removeEventListener('pointermove', move)
       el.removeEventListener('pointerup', up)
