@@ -12,15 +12,15 @@ ok(Math.abs(cosine([1, 0], [1, 0]) - 1) < 1e-9, 'cosine 相同向量=1')
 ok(Math.abs(cosine([1, 0], [0, 1])) < 1e-9, 'cosine 正交=0')
 ok(cosine([0, 0], [1, 1]) === 0, 'cosine 零向量=0')
 
-// 2. embedReady：无 EMB_* 凭证时应为 false；占位向量库 authors 为空也应 false
+// 2. embedReady：无 EMB_* 凭证时应为 false；有凭证 + 真实库时应为 true
 delete process.env.EMB_APP_ID
 delete process.env.EMB_API_KEY
 delete process.env.EMB_API_SECRET
-ok(!embedReady(), '无 EMB_* 凭证 + 占位空库 → embedReady false')
+ok(!embedReady(), '无 EMB_* 凭证 → embedReady false')
 process.env.EMB_APP_ID = 'x'
 process.env.EMB_API_KEY = 'y'
 process.env.EMB_API_SECRET = 'z'
-ok(!embedReady(), '有凭证但占位空库 → embedReady false')
+ok(embedReady(), '有凭证 + 真实库 → embedReady true')
 
 // 3. blendCandidateSets：合成 tagTop/vecTop 融合
 // 取真实 writers 造一个语义 top8（前 6 与标签 top6 重叠一半，另加 2 个新的）
