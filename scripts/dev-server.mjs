@@ -16,7 +16,7 @@ try {
   console.warn('[dev-server] 未找到 .env 文件，请参考 .env.example 创建')
 }
 
-const { default: handler } = await import('../api/review.js')
+const { POST: handler } = await import('../api/review.js')
 
 const server = createServer(async (req, res) => {
   const url = new URL(req.url, 'http://localhost:3000')

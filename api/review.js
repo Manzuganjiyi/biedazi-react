@@ -1,5 +1,6 @@
 import { CORE_WRITERS as CORE_WRITERS_DATA, ALL_WRITTEN, STYLE_DIMENSIONS, tagsToHierarchical } from './writers.js'
 import { rankCandidates, tagUserText } from './tagging.js'
+import { embedRankAuthors, blendCandidateSets, embedReady } from './embedRank.js'
 
 const DEFAULT_BASE_URL = 'https://maas-api.cn-huabei-1.xf-yun.com/v2'
 const DEFAULT_MODEL = 'xop35qwen2b'
@@ -9,8 +10,7 @@ const XFYUN_MODEL = process.env.XFYUN_MODEL || DEFAULT_MODEL
 const XFYUN_API_KEY = process.env.XFYUN_API_KEY
 
 export const config = {
-  runtime: 'edge',
-  regions: ['hkg1'],
+  runtime: 'nodejs',
 }
 
 const TONES = ['melancholy', 'passionate', 'serene', 'mysterious', 'humorous']
@@ -801,7 +801,7 @@ ${body}
   return null
 }
 
-export default async function handler(req) {
+export async function POST(req) {
   if (req.method !== 'POST') {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
@@ -856,7 +856,17 @@ export default async function handler(req) {
     // 优先用模型打的 userTags；模型没给/给乱时，用规则 tagUserText 兜底。
     const modelTags = Object.values(stage1.userTags || {}).flat().filter(Boolean)
     const userTags = modelTags.length ? modelTags : tagUserText(content)
-    let { candidates } = rankCandidates(userTags, 6)
+    const tagResult = rankCandidates(userTags, 6)
+    let { candidates } = tagResult
+    // 语义向量层（120 位全覆盖）作为第二信号与标签网络融合；未生成/调用失败自动回退纯标签
+    if (embedReady()) {
+      try {
+        const vecTop = await embedRankAuthors(content, 8)
+        candidates = blendCandidateSets(tagResult.candidates, vecTop, WRITERS, FOREIGN_NAMES, 6)
+      } catch (err) {
+        console.error('embedRank blend failed, fallback to tag-only:', err.message)
+      }
+    }
 
     // ---- Stage 2：深度解读（评语四段 + 续写 + 升华句 + 相似作家），只面对 top6 ----
     // 候选已收敛，温度压低保证风格与分数稳定。

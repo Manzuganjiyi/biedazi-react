@@ -1,0 +1,108 @@
+// ==================== 语义向量作者匹配（讯飞开放平台 Embedding）====================
+// 运行时：embed 用户正文一次 → 与作者向量余弦 → topK。
+// 与标签网络融合见 blendCandidateSets；任一环节失败由调用方回退纯标签。
+import { AUTHOR_EMBEDDINGS } from './data/authorEmbeddings.js'
+import { ALL_WRITTEN } from './writers.js'
+import { embedText, embedReady as xfyunEmbedReady } from './xfyunEmbed.js'
+
+export const embedReady = () => xfyunEmbedReady() && Array.isArray(AUTHOR_EMBEDDINGS?.authors) && Object.keys(AUTHOR_EMBEDDINGS.authors).length > 0 && AUTHOR_EMBEDDINGS.dim > 0
+
+const EMBED_TEXT_CAP = 1000 // 运行时 embed 正文截断字数（省 token）
+
+// 全体作者向量的均值（共向分量）。embedding 分数普遍挤在高位，
+// 去中心化后余弦区分度大幅提升（实测 spread 0.0077 → 0.2464）。
+let meanVec = null
+function getMeanVec() {
+  if (meanVec) return meanVec
+  const authors = AUTHOR_EMBEDDINGS.authors
+  const dim = AUTHOR_EMBEDDINGS.dim
+  const sum = new Array(dim).fill(0)
+  const names = Object.keys(authors)
+  for (const name of names) {
+    const v = authors[name]
+    for (let i = 0; i < dim; i++) sum[i] += v[i]
+  }
+  const n = Math.max(1, names.length)
+  meanVec = sum.map((x) => x / n)
+  return meanVec
+}
+
+// 用户正文 → 向量。用与建库相同的 EMB_DOMAIN（para）保证同空间可比。
+export async function embedUserText(text) {
+  const input = String(text || '').replace(/\s+/g, '').slice(0, EMBED_TEXT_CAP)
+  return embedText(input, { domain: process.env.EMB_DOMAIN || 'para' })
+}
+
+export function cosine(a, b) {
+  let dot = 0
+  let na = 0
+  let nb = 0
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i]
+    na += a[i] * a[i]
+    nb += b[i] * b[i]
+  }
+  const den = Math.sqrt(na) * Math.sqrt(nb)
+  return den ? dot / den : 0
+}
+
+// 用户正文 → 与作者向量比余弦，返回 topK [{ name, score }]
+// 双方先减去全体作者均值（去中心化），避免"共向分量"压扁区分度。
+export async function embedRankAuthors(text, topK = 8) {
+  const vec = await embedUserText(text)
+  const mean = getMeanVec()
+  const qc = vec.map((x, i) => x - mean[i])
+  const authors = AUTHOR_EMBEDDINGS.authors
+  const scored = Object.keys(authors).map((name) => {
+    const a = authors[name]
+    const ac = a.length === mean.length ? a.map((x, i) => x - mean[i]) : a
+    return { name, score: cosine(qc, ac) }
+  }).sort((a, b) => b.score - a.score)
+  return scored.slice(0, topK)
+}
+
+// ==================== 与标签网络融合 ====================
+// tagTop（标签海选）、vecTop（向量海选）各按排名归一化到 [0,1]：
+// 两边都命中 0.5/0.5，仅一边命中给 0.55（弱信号）。120 位全覆盖，中外无偏。
+// 候选卡需保持 { name, work, work2, dna, tags } 形状，供 Stage2 使用。
+export function blendCandidateSets(tagTop, vecTop, writers, foreignNames, n = 6) {
+  const norm = (list, len) => {
+    const m = new Map()
+    list.forEach((x, i) => m.set(x.name, (len - i) / len))
+    return m
+  }
+  const tr = norm(tagTop, tagTop.length)
+  const vr = norm(vecTop, vecTop.length)
+  const names = new Set([...tr.keys(), ...vr.keys()])
+  const scored = [...names].map((name) => {
+    const t = tr.get(name) || 0
+    const v = vr.get(name) || 0
+    const both = t > 0 && v > 0
+    return { name, score: both ? 0.5 * t + 0.5 * v : (v > 0 ? v : t) * 0.55 }
+  }).sort((a, b) => b.score - a.score)
+
+  const toCard = (name) => {
+    const w = writers.find((x) => x.name === name)
+    return w ? { ...w, foreign: foreignNames.has(w.name) } : null
+  }
+  let pool = scored.slice(0, n).map((s) => toCard(s.name)).filter(Boolean)
+
+  const byScore = (arr) => [...arr].sort((a, b) => {
+    const sa = scored.find((s) => s.name === a.name)?.score || 0
+    const sb = scored.find((s) => s.name === b.name)?.score || 0
+    return sb - sa
+  })
+  pool = byScore(pool)
+  const hasCn = pool.some((s) => !s.foreign)
+  const hasFr = pool.some((s) => s.foreign)
+  if (n > 1 && (!hasCn || !hasFr)) {
+    const need = !hasCn ? 'cn' : 'fr'
+    const alt = scored
+      .filter((s) => (need === 'cn' ? !foreignNames.has(s.name) : foreignNames.has(s.name)))
+      .map((s) => toCard(s.name))
+      .filter(Boolean)
+    if (alt.length) pool[pool.length - 1] = alt[0]
+    pool = byScore(pool)
+  }
+  return pool.slice(0, n)
+}

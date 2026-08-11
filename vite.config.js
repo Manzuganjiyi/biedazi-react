@@ -8,7 +8,7 @@ export default defineConfig({
   base: process.env.GITHUB_PAGES ? '/biedazi-react/' : '/',
   server: {
     port: 5173,
-    open: true,
+    open: false,
     proxy: {
       '/api': {
         target: 'http://localhost:3000',

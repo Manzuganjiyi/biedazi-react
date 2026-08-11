@@ -11,6 +11,15 @@
 - 发生你认为重大的改动时，先询问用户；若用户也认为重要，则数字部分增加 `0.1`（如 `1.00a → 1.10a`），否则按普通修改（字母延后）处理。
 - 版本号用于 commit / 部署命名，不改 package.json 的 semver 字段（`1.00a` 非合法 semver）。
 
+# 部署清单（语义向量匹配）
+
+- `api/review.js` 会尝试用讯飞 embedding（`embedReady()`）做作者语义匹配，与标签网络融合。
+- 向量库 `api/data/authorEmbeddings.js` 默认是占位空库（未生成时自动回退纯标签，不影响上线）。注意：向量/样本数据文件必须放在 `api/data/`，**不能放 `src/`**——`src/` 下的大体积单行 JS 会卡死 vite build（`transforming...` 阶段）。
+- 首次/每次样本有变动后需重新生成并提交：
+  - `$env:XFYUN_API_KEY="..." ; node scripts/build-embedding-vectors.mjs`
+  - 可选 `XFYUN_EMBED_MODEL`（默认 `embedding-v1`）、`XFYUN_BASE_URL`。
+  - 耗时较长（每位作者逐样本 embed 后取均值），生成后检查 `scripts/test-embed-blend.mjs` 通过。
+
 # 迭代报告自动追加
 
 - 每次完成一个迭代（代码修改、commit 或部署）后，**必须自动追加迭代条目**到 `docs/迭代总结-原始.md`，不要等用户要求。
