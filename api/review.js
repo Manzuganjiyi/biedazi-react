@@ -691,7 +691,10 @@ async function callXfyun(prompt, temperature, timeoutMs = 60000) {
     console.error('XFYUN API Error:', response.status, msg)
     const err = new Error(`AI 服务返回：${msg}`)
     err.status = response.status
-    err.retryable = response.status >= 500 || response.status === 429
+    // 讯飞 MaaS 过载/内部错误常以 HTTP 200 + error.message='internal error' + overloaded=true 返回；
+    // 这类服务端瞬时故障必须可重试（否则 Stage1/Stage2 的 3 次尝试会因 retryable=false 直接中断）。
+    const overloaded = data.overloaded === true || /overload|internal error|繁忙|过载|rate.?limit/i.test(msg)
+    err.retryable = response.status >= 500 || response.status === 429 || overloaded
     throw err
   }
   if (!response.ok) {
