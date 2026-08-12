@@ -46,7 +46,6 @@ scripts/
   dev-server.mjs    本地 API 开发服务器（端口 3000）
   dev.mjs           一键同时启动 Vite + 本地 API（npm run dev）
   build-embedding-vectors.mjs  讯飞 embedding 向量库生成（需 EMB_* 凭证）
-  build-author-vectors.mjs     统计风格向量生成
   test-embed-blend.mjs         标签/向量融合测试
   verify-samples.mjs           样本与作家库对齐校验
 src/                前端 React 应用

@@ -119,7 +119,6 @@ export const useWriterStore = create(
       setCachedReview: (review) => set({ cachedReview: review }),
       setBottomBarH: (vh) => set({ bottomBarH: Math.max(24, Math.min(86, Number(vh) || 50)) }),
       requestPanelClose: () => set((s) => ({ closeRequestId: s.closeRequestId + 1 })),
-      setToneColor: (tone) => set({ toneColor: TONE_COLORS[tone] || TONE_COLORS.default }),
       setStyleColor: (color) => set({
         toneColor: typeof color === 'string' && /^#[0-9a-fA-F]{6}$/.test(color)
           ? color

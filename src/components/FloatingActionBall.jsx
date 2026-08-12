@@ -4,7 +4,17 @@ import { Feather, Loader2, ArrowLeft } from 'lucide-react'
 import { motion } from 'framer-motion'
 
 export default function FloatingActionBall() {
-  const { isReviewing, isThinking, triggerReview, returnToEditor, showBottomBar, bottomBarH, showContinuation } = useWriterStore()
+  const { isReviewing, isThinking, triggerReview, returnToEditor, showBottomBar, bottomBarH, showContinuation } = useWriterStore(
+    useShallow((s) => ({
+      isReviewing: s.isReviewing,
+      isThinking: s.isThinking,
+      triggerReview: s.triggerReview,
+      returnToEditor: s.returnToEditor,
+      showBottomBar: s.showBottomBar,
+      bottomBarH: s.bottomBarH,
+      showContinuation: s.showContinuation,
+    }))
+  )
   const [isHovered, setIsHovered] = useState(false)
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 768)
 

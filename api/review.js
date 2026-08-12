@@ -9,8 +9,35 @@ const XFYUN_BASE_URL = process.env.XFYUN_BASE_URL || DEFAULT_BASE_URL
 const XFYUN_MODEL = process.env.XFYUN_MODEL || DEFAULT_MODEL
 const XFYUN_API_KEY = process.env.XFYUN_API_KEY
 
+// ==================== 轻量限流（防刷）====================
+// 内存滑动窗口：同 IP 60s 内最多 N 次分析。无外部存储，仅做第一道防线：
+// serverless 多实例下发量到单个实例时窗口独立，但绝大多数滥用会被挡下；
+// 配合前端缓存（内容未变不重复请求）可作为主要成本闸门。
+const RATE_WINDOW_MS = 60 * 1000
+const RATE_MAX = 6
+const RATE_HITS = new Map() // ip -> number[]
+
+function isRateLimited(req) {
+  const ip = (req.headers.get('x-forwarded-for') || req.headers.get('x-real-ip') || 'unknown')
+    .split(',')[0].trim()
+  const now = Date.now()
+  let hits = RATE_HITS.get(ip) || []
+  hits = hits.filter((t) => now - t < RATE_WINDOW_MS)
+  if (hits.length >= RATE_MAX) {
+    RATE_HITS.set(ip, hits)
+    return true
+  }
+  hits.push(now)
+  RATE_HITS.set(ip, hits)
+  return false
+}
+
 export const config = {
   runtime: 'nodejs',
+  // 显式声明函数时长上限，避免被 Vercel 按默认值（Hobby 历史默认 10s）杀掉长请求。
+  // Stage1/Stage2 最坏多次重试会超过它，但正常单次解读（Stage1+Stage2）在预算内；
+  // callXfyun 单次超时也相应压到 45s（见函数默认值），整体留有余量。
+  maxDuration: 60,
 }
 
 const TONES = ['melancholy', 'passionate', 'serene', 'mysterious', 'humorous']
@@ -161,13 +188,12 @@ ${body}
 ${STYLE_SYSTEM_BLOCK}
 ${STYLE_OPPOSITES_NOTE}
 
-请从上述词表给这段文字打标签：对每个维度，从该维度词表里挑选最符合本文的标签（每个维度选 0-3 个，没把握就不选；宁少勿乱）；然后判断本文情感基调与逐项评分，并摘录高光句子与批注。注意「文化」维度：它代表这段文字所处的文化语境（作者属于哪个国家/地区文化传统，如中文写作通常是中国，但模仿日本物哀或欧美叙事也可能体现出日本/英国/美国/俄罗斯等语境；跨文化可标多个）。
+请从上述词表给这段文字打标签：对每个维度，从该维度词表里挑选最符合本文的标签（每个维度选 0-3 个，没把握就不选；宁少勿乱）；然后判断本文情感基调，并摘录高光句子与批注。注意「文化」维度：它代表这段文字所处的文化语境（作者属于哪个国家/地区文化传统，如中文写作通常是中国，但模仿日本物哀或欧美叙事也可能体现出日本/英国/美国/俄罗斯等语境；跨文化可标多个）。
 
 请严格按以下 JSON 结构返回（只返回合法 JSON，不要 markdown 代码块，不要任何其他文字）：
 {
   "userTags": { "句法节奏": ["从词表选", "可多个"], "语言质地": ["..."], "题材内容": ["..."], "情感基调": ["..."], "意象系统": ["..."], "叙事结构": ["..."], "文化": ["国家或地区，如'中国'/'日本'/'英国'"] },
   "tone": "melancholy|passionate|serene|mysterious|humorous 之一",
-  "scores": { "language": 0-100整数, "structure": 0-100整数, "imagery": 0-100整数, "emotion": 0-100整数, "innovation": 0-100整数, "total": 0-100整数 },
   "bestQuote": "整篇文字里最出彩、最值得单独拎出来展示的那一句话（必须是正文中逐字真实存在的完整句子，含句末标点）",
   "annotations": [
     { "quote": "原文中真实存在的一个完整句子，从第一个字到句末标点完整摘录", "comment": "50-70字批注，锐利、具体地谈这一句的修辞、意象、节奏得失，不要空泛的褒贬" }
@@ -177,15 +203,14 @@ ${STYLE_OPPOSITES_NOTE}
 严格要求：
 1. userTags 的每个标签都必须出自上面的词表，绝不能自造词表外的标签；没把握的维度留空数组
 2. tone 只能是 melancholy(清冷忧郁)、passionate(热烈激情)、serene(宁静平和)、mysterious(神秘幽微)、humorous(幽默诙谐) 之一
-3. scores 的五个分项与 total 都是 0-100 之间的整数，按评分标准给：60 分 = 省市级文学刊物可发表；70 分 = 国内重要文学期刊；80 分 = 顶尖；90 分以上 = 罕见的一流文本；绝大多数投稿在 55-75 之间，切勿虚高；分项与 total 要口径一致
-4. annotations 数组必须【正好 ${annoCount} 项】，绝对不能多——每项对应原文中约一个 400 字片段里最高光的那一句，每项约 50-70 字，多写会挤占输出预算
-5. 每条 annotations 的 quote 必须从正文中【逐字完整摘录】一个【完整的句子】：从第一个字到句末标点（含句末标点）。绝不能改写、删减、截取半句、拼接或凭空编造；若原文里实在找不到第 ${annoCount} 句完整的，就挑一句真正存在的最短的完整句子，宁可句子短，不可编造
-6. bestQuote 同样必须从正文中逐字真实摘录完整句子（含句末标点）
-7. 只输出这一个 JSON 对象，禁止任何 JSON 之外的解释文字`
+3. annotations 数组必须【正好 ${annoCount} 项】，绝对不能多——每项对应原文中约一个 400 字片段里最高光的那一句，每项约 50-70 字，多写会挤占输出预算
+4. 每条 annotations 的 quote 必须从正文中【逐字完整摘录】一个【完整的句子】：从第一个字到句末标点（含句末标点）。绝不能改写、删减、截取半句、拼接或凭空编造；若原文里实在找不到第 ${annoCount} 句完整的，就挑一句真正存在的最短的完整句子，宁可句子短，不可编造
+5. bestQuote 同样必须从正文中逐字真实摘录完整句子（含句末标点）
+6. 只输出这一个 JSON 对象，禁止任何 JSON 之外的解释文字`
 }
 
 // —— Stage 2 prompt ——
-export function buildStage2Prompt({ content, title, author, annoCount = 5, candidates = [], stage1 = {} }) {
+export function buildStage2Prompt({ content, title, author, candidates = [], stage1 = {} }) {
   const full = String(content || '')
   const body = capForModel(full)
   const excerpt = body.length < full.length ? '（节选，以下为正文开头部分）' : ''
@@ -193,10 +218,6 @@ export function buildStage2Prompt({ content, title, author, annoCount = 5, candi
   const stage1Context = (() => {
     const parts = []
     if (stage1?.tone) parts.push(`情感基调（Stage 1 已判定，评语口吻请与此一致）：${stage1.tone}`)
-    const s = stage1?.scores
-    if (s && typeof s === 'object') {
-      parts.push(`Stage 1 已给出评分（除非你发现明显偏差，否则应沿用；若微调需与评语口径一致）：语言 ${s.language}、结构 ${s.structure}、意象 ${s.imagery}、情感 ${s.emotion}、创新 ${s.innovation}、总分 ${s.total}`)
-    }
     return parts.length ? `\n${parts.join('\n')}` : ''
   })()
 
@@ -226,12 +247,6 @@ ${stage1Context}
 - 不要为了顺畅而消除作者刻意制造的晦涩、断裂、意识跳跃；不要把奇异的意象改写得通俗好懂
 - 叙事层面刻意的断裂、歧义、含混属于作者的写作选择，不视作错误，也绝不要求改顺
 
-评分标准（务必遵守）：
-- 60 分 = 省市级文学刊物可发表的水平；70 分 = 国内重要文学期刊水平；80 分 = 顶尖（《收获》《人民文学》级别）；90 分以上 = 罕见的一流文本；100 分 = 诺贝尔文学奖级别
-- 绝大多数投稿在 55-75 之间；只有真正出色、让人眼前一亮的文本才给 80 以上，切勿虚高
-- 五个分项（语言/结构/意象/情感/创新）与总分都要基于你对文本的真实判断，且必须与评语口径一致：评语里批评得越重，分数就越低
-- 请保持评分稳定性：同一水准的文本给出同一档的分数，不要让分数随心情浮动
-
 请严格按以下 JSON 结构返回（只返回合法 JSON，不要 markdown 代码块，不要任何其他文字）：
 {
   "textOverview": "总评第一段的自然段落（约70-90字，不要用序号不要分点不要任何小标题，也不要写'概览''文本分析'这类字眼）：像 MBTI 人格解读那样，用理解与共情的口吻，先感受这段文字流露出的气质与心绪（叙事视角：正文用'他/她'即第三人称，用'我'即第一人称，别弄错），说出'这段文字像是怎样一个人写下的'——可以落到开头的第一个镜头、最触动的那个细节上，让作者一读就知道你真的读进去了。语气真诚、关怀，像在读懂作者这个人",
@@ -243,7 +258,6 @@ ${stage1Context}
   "continuation": "约300-500字的续写（至少300字，尽量写到350字以上），风格、语气、节奏与原文完全一致，延续原文的人物、场景与情绪脉络，像同一支笔接着写下去；内容要扎实有推进、有新的细节与起伏，不要空泛抒情或机械复读，不要在这里写总结或收尾",
   "emotionalClosing": "一句克制的、有文学余味的诗意升华句（内部代号为S句，20-40字），用意象或隐喻收束全篇的余韵，提升整篇格调；不一定是祝福或祝愿，可以是任何有画面感、有升华感的文学性收束，但避免鸡汤与空泛。注意：'S句''S 句'是字段的内部代号，绝不能出现在你的任何输出文本里，读者只应该看到升华句本身",
   "tone": "melancholy|passionate|serene|mysterious|humorous 之一，按文本整体情感基调判断",
-  "scores": { "language": 0-100整数, "structure": 0-100整数, "imagery": 0-100整数, "emotion": 0-100整数, "innovation": 0-100整数, "total": 0-100整数 },
   "authors": [
     { "name": "从上述候选作家中挑选的第1位风格最相似的作家名", "work": "该作家的代表作", "reason": "一句简短的话说明该作家与本文风格相似的原因，约20-40字", "similarity": 0-100整数（风格相似度百分比） },
     { "name": "第2位风格最相似的作家名（三位中至少一位必须是外国作家）", "work": "该作家的代表作", "reason": "一句简短的话说明该作家与本文风格相似的原因，约20-40字", "similarity": 0-100整数（风格相似度百分比） },
@@ -257,8 +271,7 @@ ${stage1Context}
 3. continuation 至少要写到 300 字，尽量 350-500 字，宁长勿短
 4. tone 只能是 melancholy(清冷忧郁)、passionate(热烈激情)、serene(宁静平和)、mysterious(神秘幽微)、humorous(幽默诙谐) 之一
 5. authors 数组必须【正好 3 项】，且每位都【只能】出自上面的候选作家：${CANDIDATE_NAMES}，绝不出现候选之外的名字，work 必须是该作家真实存在的代表作；reason 必须是一句具体的、结合本文特点的相似理由（说明风格/笔法/题材上哪里像），禁止空话套话，禁止从清单外编造；similarity 必须是 0-100 之间的整数，表示该作家风格与本文的相似度占比（第一、二、三位依次递减，通常 35-40/25-30/15-20 这一档），且三位之和必须小于 100（代表不同维度的占比）；【重要】三位中至少有一位必须是候选中的外国作家（非中国作家，如托尔斯泰、川端康成、卡夫卡、海明威、村上春树等），不要三位全是中国人
-6. scores 的五个分项与 total 都必须是 0-100 之间的整数，且必须严格对照评分标准与你的评语来给，禁止一律给高分
-7. 只输出这一个 JSON 对象，禁止复述作家清单，禁止任何清单之外的解释文字`
+6. 只输出这一个 JSON 对象，禁止复述作家清单，禁止任何清单之外的解释文字`
 }
 
 export function extractJson(text) {
@@ -652,7 +665,7 @@ export function normalizeReview(parsed, content, opts = {}) {
   }
 }
 
-async function callXfyun(prompt, temperature, timeoutMs = 60000) {
+async function callXfyun(prompt, temperature, { timeoutMs = 45000, maxTokens = 8192 } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
@@ -666,7 +679,7 @@ async function callXfyun(prompt, temperature, timeoutMs = 60000) {
         model: XFYUN_MODEL,
         messages: [{ role: 'user', content: prompt }],
         temperature,
-        max_tokens: 8192,
+        max_tokens: maxTokens,
       }),
       signal: controller.signal,
     })
@@ -791,7 +804,7 @@ ${body}
 
 续写：`
   try {
-    const raw = await callXfyun(prompt, 0.6)
+    const raw = await callXfyun(prompt, 0.6, { maxTokens: 2048 })
     const clean = String(raw || '')
       .replace(/```/g, '')
       .replace(/^[\s"'“”「『]+|[\s"'“”」』]+$/g, '')
@@ -809,6 +822,13 @@ export async function POST(req) {
     return new Response(JSON.stringify({ error: 'Method not allowed' }), {
       status: 405,
       headers: { 'Content-Type': 'application/json' },
+    })
+  }
+
+  if (isRateLimited(req)) {
+    return new Response(JSON.stringify({ error: '请求过于频繁，请稍后再试' }), {
+      status: 429,
+      headers: { 'Content-Type': 'application/json', 'Retry-After': '60' },
     })
   }
 
@@ -838,7 +858,7 @@ export async function POST(req) {
     for (const t of stage1Attempts) {
       try {
         const p1 = buildStage1Prompt({ content, title, author, annoCount })
-        const raw1 = await callXfyun(p1, t)
+        const raw1 = await callXfyun(p1, t, { maxTokens: 4096 })
         stage1 = extractJson(raw1)
         if (stage1 && typeof stage1 === 'object') break
       } catch (err) {
@@ -878,11 +898,11 @@ export async function POST(req) {
     for (const t of stage2Attempts) {
       try {
         const p2 = buildStage2Prompt({
-          content, title, author, annoCount,
+          content, title, author,
           candidates,
           stage1,
         })
-        const raw2 = await callXfyun(p2, t)
+        const raw2 = await callXfyun(p2, t, { maxTokens: 8192 })
         stage2 = extractJson(raw2)
         if (stage2 && typeof stage2 === 'object') break
       } catch (err) {
@@ -899,13 +919,12 @@ export async function POST(req) {
       })
     }
 
-    // 合并：批注/精彩句/情感基调/评分来自 Stage 1，评语与相似作家来自 Stage 2
+    // 合并：批注/精彩句/情感基调来自 Stage 1，评语与相似作家来自 Stage 2
     const parsed = {
       ...stage2,
       annotations: stage1.annotations,
       bestQuote: stage1.bestQuote,
       tone: stage1.tone || stage2.tone,
-      scores: stage1.scores || stage2.scores,
       userTags,
       candidates: candidates.map((c) => c.name),
     }
@@ -914,9 +933,10 @@ export async function POST(req) {
       candidatePool: candidates,
     })
 
-    // 续写未达到 300-500 字时，用一次专门调用补齐，保证续写够长、够有推进
+    // Stage2 已内置续写要求（300-500 字），通常直接可用。仅当续写完全缺失时才用一次专门调用
+    // 兜底补齐；长度略短（200-300 字）不再单独补发，避免把正文第三次重发给模型（省 token 与时长）。
     let finalResult = result
-    if (!result.continuation || String(result.continuation).length < 250) {
+    if (!result.continuation || !String(result.continuation).trim()) {
       const longCont = await generateContinuation(content, title, author)
       if (longCont) finalResult = { ...result, continuation: longCont }
     }

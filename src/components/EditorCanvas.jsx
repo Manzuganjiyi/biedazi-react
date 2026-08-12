@@ -335,6 +335,7 @@ export default function EditorCanvas() {
           <div className="relative">
             <div
               ref={editorRef}
+              id="editor-content"
               contentEditable
               suppressContentEditableWarning
               className="editor-typography min-h-[400px] outline-none text-editor-text"

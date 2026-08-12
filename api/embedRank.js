@@ -1,30 +1,60 @@
 // ==================== 语义向量作者匹配（讯飞开放平台 Embedding）====================
 // 运行时：embed 用户正文一次 → 与作者向量余弦 → topK。
 // 与标签网络融合见 blendCandidateSets；任一环节失败由调用方回退纯标签。
-import { AUTHOR_EMBEDDINGS } from './data/authorEmbeddings.js'
-import { ALL_WRITTEN } from './writers.js'
+// 向量库为 2.5MB 大文件：仅在 embedReady() 为 true 时动态 import（惰性加载），
+// 未配置 EMB_* 凭证的部署不经解析，节省 serverless 冷启动时间。
 import { embedText, embedReady as xfyunEmbedReady } from './xfyunEmbed.js'
 
-export const embedReady = () => xfyunEmbedReady() && typeof AUTHOR_EMBEDDINGS?.authors === 'object' && AUTHOR_EMBEDDINGS.authors !== null && Object.keys(AUTHOR_EMBEDDINGS.authors).length > 0 && AUTHOR_EMBEDDINGS.dim > 0
+let authorEmbeddings = null
+let authorEmbeddingsPromise = null
+
+async function loadAuthorEmbeddings() {
+  if (authorEmbeddings) return authorEmbeddings
+  if (!authorEmbeddingsPromise) {
+    authorEmbeddingsPromise = import('./data/authorEmbeddings.js')
+      .then((m) => m.AUTHOR_EMBEDDINGS)
+      .then((lib) => {
+        authorEmbeddings = lib
+        return lib
+      })
+  }
+  return authorEmbeddingsPromise
+}
+
+export const embedReady = () => xfyunEmbedReady()
 
 const EMBED_TEXT_CAP = 1000 // 运行时 embed 正文截断字数（省 token）
 
 // 全体作者向量的均值（共向分量）。embedding 分数普遍挤在高位，
 // 去中心化后余弦区分度大幅提升（实测 spread 0.0077 → 0.2464）。
-let meanVec = null
-function getMeanVec() {
-  if (meanVec) return meanVec
-  const authors = AUTHOR_EMBEDDINGS.authors
-  const dim = AUTHOR_EMBEDDINGS.dim
+// 均值 / 去中心化向量 / 模长一次算好缓存：135 位 × 2560 维的重计算移到模块级，
+// 每次请求直接复用（E9 优化）。
+let precomputed = null
+async function getPrecomputed() {
+  if (precomputed) return precomputed
+  const embeddings = await loadAuthorEmbeddings()
+  const dim = embeddings.dim
+  const names = Object.keys(embeddings.authors)
   const sum = new Array(dim).fill(0)
-  const names = Object.keys(authors)
   for (const name of names) {
-    const v = authors[name]
+    const v = embeddings.authors[name]
     for (let i = 0; i < dim; i++) sum[i] += v[i]
   }
   const n = Math.max(1, names.length)
-  meanVec = sum.map((x) => x / n)
-  return meanVec
+  const mean = sum.map((x) => x / n)
+
+  const centered = new Map()
+  const norms = new Map()
+  for (const name of names) {
+    const a = embeddings.authors[name]
+    const c = a.map((x, i) => x - mean[i])
+    centered.set(name, c)
+    let sq = 0
+    for (let i = 0; i < c.length; i++) sq += c[i] * c[i]
+    norms.set(name, Math.sqrt(sq))
+  }
+  precomputed = { dim, mean, centered, norms }
+  return precomputed
 }
 
 // 用户正文 → 向量。用与建库相同的 EMB_DOMAIN（para）保证同空间可比。
@@ -33,31 +63,37 @@ export async function embedUserText(text) {
   return embedText(input, { domain: process.env.EMB_DOMAIN || 'para' })
 }
 
-export function cosine(a, b) {
+// 标准化余弦：输出 = dot(a, b) / (|a|·|b|)。
+// 业务侧传第三参 bNorm（= |b|，预先算好）；未传时（脚本/旧调用）现场现算模长，保持两参语义。
+export function cosine(a, b, bNorm) {
+  const len = Math.min(a.length, b.length)
   let dot = 0
   let na = 0
-  let nb = 0
-  for (let i = 0; i < a.length; i++) {
+  for (let i = 0; i < len; i++) {
     dot += a[i] * b[i]
     na += a[i] * a[i]
-    nb += b[i] * b[i]
   }
-  const den = Math.sqrt(na) * Math.sqrt(nb)
+  let nb = bNorm
+  if (nb === undefined) {
+    nb = 0
+    for (let i = 0; i < len; i++) nb += b[i] * b[i]
+    nb = Math.sqrt(nb)
+  }
+  const den = Math.sqrt(na) * nb
   return den ? dot / den : 0
 }
 
 // 用户正文 → 与作者向量比余弦，返回 topK [{ name, score }]
 // 双方先减去全体作者均值（去中心化），避免"共向分量"压扁区分度。
+// 作者侧已去中心化并预计算模长，每次请求只需对用户向量算一次去中心化与模板。
 export async function embedRankAuthors(text, topK = 8) {
   const vec = await embedUserText(text)
-  const mean = getMeanVec()
+  const { mean, centered, norms } = await getPrecomputed()
   const qc = vec.map((x, i) => x - mean[i])
-  const authors = AUTHOR_EMBEDDINGS.authors
-  const scored = Object.keys(authors).map((name) => {
-    const a = authors[name]
-    const ac = a.length === mean.length ? a.map((x, i) => x - mean[i]) : a
-    return { name, score: cosine(qc, ac) }
-  }).sort((a, b) => b.score - a.score)
+  const scored = [...centered.entries()].map(([name, ac]) => ({
+    name,
+    score: cosine(qc, ac, norms.get(name)),
+  })).sort((a, b) => b.score - a.score)
   return scored.slice(0, topK)
 }
 

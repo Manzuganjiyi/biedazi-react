@@ -6,6 +6,9 @@ import { ArrowLeft, Share2, Check, AlertCircle, X, Scan, BookOpen, Users, Messag
 import { analyzeTextAPI, TONE_COLORS } from '../data/mockReviews'
 import QRCode from 'qrcode'
 
+// 分析请求代次：递增计数器，切文章/重开解读都会令旧代次失效，迟到请求直接丢弃
+const useInFlightSeq = { current: 0 }
+
 const hexToRgba = (hex, alpha = 0.55) => {
   const m = /^#([0-9a-fA-F]{6})$/.exec(hex || '')
   if (!m) return `rgba(74,74,74,${alpha})`
@@ -171,7 +174,7 @@ const ToneMetaphor = React.memo(function ToneMetaphor({ text, size = 19 }) {
 })
 
 // ==================== 总分卡片（只显示五边形评级图 + 调性比喻，不显示数字）====================
-const ScoreCard = React.memo(function ScoreCard({ score, radar, fill, toneMetaphor }) {
+const ScoreCard = React.memo(function ScoreCard({ radar, fill, toneMetaphor }) {
   return (
     <motion.div 
       className={`glass-card p-4 flex flex-col ${fill ? 'h-full' : 'mb-3'}`}
@@ -852,6 +855,14 @@ export default function ReviewPanel() {
     // 重新分析：先清空上一轮解读（含内联续写），避免旧内容残留/累积
     updateActiveArticle({ review: null, reviewFp: null })
 
+    // 请求代次守卫：effect 依赖 activeArticleId，切换文章会触发本 effect 重建。
+    // 每次真正发起请求前 seq +1，迟到请求（切文章/重新分析后旧请求返回）因 seq 落后被丢弃，
+    // 避免把 A 文的解读写进现在激活的 B 文；生产构建下 StrictMode 无双挂载，保证每次解读只发一次 API。
+    const mySeq = ++useInFlightSeq.current
+    const articleIdAtStart = activeArticleId
+
+    const controller = new AbortController()
+
     // 视觉推进与真实 API 调用并行：按 20s 名义时长均衡分配 5 个阶段
     const TOTAL_MS = 20000
     const startedAt = Date.now()
@@ -864,10 +875,15 @@ export default function ReviewPanel() {
     analyzeTextAPI(
       activeArticle.content,
       activeArticle.title,
-      activeArticle.author
+      activeArticle.author,
+      controller.signal
     )
       .then(result => {
         clearInterval(progressTimer)
+        // seq 落后（切走/重开）或当前激活文章已变化 → 丢弃，不落库
+        if (mySeq !== useInFlightSeq.current) return
+        const state = useWriterStore.getState()
+        if (state.activeArticleId !== articleIdAtStart || !state.isReviewing) return
         setThinking(false, [])
         setStyleColor(result.styleColor || TONE_COLORS[result.tone])
         setReviewData(result)
@@ -877,12 +893,17 @@ export default function ReviewPanel() {
       })
       .catch(err => {
         clearInterval(progressTimer)
+        if (mySeq !== useInFlightSeq.current) return
+        if (err?.name === 'AbortError') return
         setThinking(false, [])
         setError(err)
         console.error('AI 分析失败:', err)
       })
 
-    return () => clearInterval(progressTimer)
+    return () => {
+      clearInterval(progressTimer)
+      controller.abort()
+    }
   }, [isReviewing, activeArticleId])
 
   // 结果呈现（含缓存复用）瞬间播放一次水彩浸润；已播过或重开解读时重置
@@ -1293,7 +1314,7 @@ export default function ReviewPanel() {
               ) : showResults && reviewData ? (
                 <>
                   <AnnotationList annotations={reviewData.annotations} onAnchorClick={handleAnchorClick} />
-                  <ScoreCard score={reviewData.score} radar={reviewData.radar} toneMetaphor={reviewData.toneMetaphor} />
+                  <ScoreCard radar={reviewData.radar} toneMetaphor={reviewData.toneMetaphor} />
                   <AuthorsCard authors={reviewData.authors} />
                   <SummaryCard review={reviewData} />
                   <button 
@@ -1537,7 +1558,7 @@ export default function ReviewPanel() {
               onTouchStart={handleBarTouchStart}
               onTouchMove={handleBarTouchMove}
             >
-              <ScoreCard score={reviewData.score} radar={reviewData.radar} toneMetaphor={reviewData.toneMetaphor} fill />
+              <ScoreCard radar={reviewData.radar} toneMetaphor={reviewData.toneMetaphor} fill />
             </div>
             <div
               className="w-[300px] flex-shrink-0 p-4 border-r border-black/5 overflow-y-auto"

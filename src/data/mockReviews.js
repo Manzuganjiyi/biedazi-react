@@ -17,11 +17,12 @@ export const THINKING_STEPS = [
 ]
 
 // ==================== 调用真实 AI（讯飞星辰 MaaS 免费 Qwen 模型）====================
-export async function analyzeTextAPI(text, title = '', author = '') {
+export async function analyzeTextAPI(text, title = '', author = '', signal) {
   const response = await fetch('/api/review', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content: text, title, author }),
+    signal,
   })
 
   if (!response.ok) {

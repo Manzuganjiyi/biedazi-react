@@ -1,9 +1,18 @@
 import React from 'react'
 import { useWriterStore } from '../store/useWriterStore'
+import { useShallow } from 'zustand/react/shallow'
 import { Plus, X } from 'lucide-react'
 
 export default function ArticleTabs() {
-  const { articles, activeArticleId, setActiveArticle, createArticle, deleteArticle } = useWriterStore()
+  const { articles, activeArticleId, setActiveArticle, createArticle, deleteArticle } = useWriterStore(
+    useShallow((s) => ({
+      articles: s.articles,
+      activeArticleId: s.activeArticleId,
+      setActiveArticle: s.setActiveArticle,
+      createArticle: s.createArticle,
+      deleteArticle: s.deleteArticle,
+    }))
+  )
 
   return (
     <div className="flex items-center gap-1 px-4 py-2 border-b border-editor-border/60 bg-transparent overflow-x-auto flex-shrink-0">
