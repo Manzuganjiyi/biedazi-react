@@ -13,12 +13,13 @@
 
 # 部署清单（语义向量匹配）
 
-- `api/review.js` 会尝试用讯飞 embedding（`embedReady()`）做作者语义匹配，与标签网络融合。
+- `api/review.js` 会尝试用智谱 embedding（`embedReady()`，复用 `ZHIPU_API_KEY`）做作者语义匹配，与标签网络融合。
 - 向量库 `api/data/authorEmbeddings.js` 默认是占位空库（未生成时自动回退纯标签，不影响上线）。注意：向量/样本数据文件必须放在 `api/data/`，**不能放 `src/`**——`src/` 下的大体积单行 JS 会卡死 vite build（`transforming...` 阶段）。
 - 首次/每次样本有变动后需重新生成并提交：
-  - `$env:XFYUN_API_KEY="..." ; node scripts/build-embedding-vectors.mjs`
-  - 可选 `XFYUN_EMBED_MODEL`（默认 `embedding-v1`）、`XFYUN_BASE_URL`。
-  - 耗时较长（每位作者逐样本 embed 后取均值），生成后检查 `scripts/test-embed-blend.mjs` 通过。
+  - `node scripts/build-embedding-vectors.mjs`（读取 `.env` 的 `ZHIPU_API_KEY`，模型 `embedding-3`，2048 维）
+  - 可选 `EMB_MODEL`（默认 `embedding-3`）。
+  - 策略为 per-sample：每位作者每条样本单独 embed 后逐维取均值，覆盖作者多面文风。
+  - 耗时较长（135 位 × 每位多条样本），生成后检查 `scripts/test-embed-blend.mjs` 通过。
 
 # 迭代报告自动追加
 

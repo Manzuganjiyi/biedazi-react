@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { useShallow } from 'zustand/react/shallow'
 import { useWriterStore } from '../store/useWriterStore'
 import { Feather, Loader2, ArrowLeft } from 'lucide-react'
 import { motion } from 'framer-motion'

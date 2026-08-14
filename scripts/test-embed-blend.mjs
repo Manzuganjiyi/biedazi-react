@@ -12,14 +12,11 @@ ok(Math.abs(cosine([1, 0], [1, 0]) - 1) < 1e-9, 'cosine 相同向量=1')
 ok(Math.abs(cosine([1, 0], [0, 1])) < 1e-9, 'cosine 正交=0')
 ok(cosine([0, 0], [1, 1]) === 0, 'cosine 零向量=0')
 
-// 2. embedReady：无 EMB_* 凭证时应为 false；有凭证 + 真实库时应为 true
-delete process.env.EMB_APP_ID
-delete process.env.EMB_API_KEY
-delete process.env.EMB_API_SECRET
-ok(!embedReady(), '无 EMB_* 凭证 → embedReady false')
-process.env.EMB_APP_ID = 'x'
-process.env.EMB_API_KEY = 'y'
-process.env.EMB_API_SECRET = 'z'
+// 2. embedReady：无 ZHIPU_API_KEY 时应为 false；有凭证 + 真实库时应为 true
+const savedKey = process.env.ZHIPU_API_KEY
+delete process.env.ZHIPU_API_KEY
+ok(!embedReady(), '无 ZHIPU_API_KEY → embedReady false')
+process.env.ZHIPU_API_KEY = savedKey || 'x'
 ok(embedReady(), '有凭证 + 真实库 → embedReady true')
 
 // 3. blendCandidateSets：合成 tagTop/vecTop 融合

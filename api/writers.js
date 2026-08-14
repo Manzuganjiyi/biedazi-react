@@ -462,7 +462,10 @@ export function hierarchicalSimilarity(tagsA = [], tagsB = []) {
   }
   // 同维度共享权重更高：先按"命中几个维度"奖励广度，再按共享数奖励深度。
   // 关联标签计半分（0.5），对立极扣分（1.5）。
+  // 文化是强信号：同一文化背景的作家共享文化标签，额外加权（+2），
+  // 避免"俄罗斯/日本"等文化标签被通用风格标签淹没（文化识别比风格判断更可靠）。
   const sharedDims = new Set(shared.map((t) => dimOf.get(t))).size
-  const score = shared.length * 1 + sharedDims * 0.5 + related.length * 0.5 - opposed.length * 1.5
+  const cultureShared = shared.filter((t) => dimOf.get(t) === '文化').length
+  const score = shared.length * 1 + sharedDims * 0.5 + related.length * 0.5 - opposed.length * 1.5 + cultureShared * 2
   return { score, shared, opposed, related, dims: sharedDims }
 }

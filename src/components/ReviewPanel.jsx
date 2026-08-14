@@ -580,7 +580,7 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
           <div style={{ flex: 1, minWidth: 0, paddingRight: 12 }}>
             <div style={{ fontSize: 21, fontWeight: 600, color: ink, lineHeight: 1.4 }}>{article.title || '未命名篇章'}</div>
-            <div style={{ fontSize: 12, color: sub, marginTop: 4 }}>作者：{article.author || '佚名'}</div>
+            <div style={{ fontSize: 12, color: sub, marginTop: 4, whiteSpace: 'nowrap' }}>作者：{article.author || '佚名'}</div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', flexShrink: 0, paddingTop: 14 }}>
             <ShareQrCode />
@@ -617,15 +617,16 @@ const ShareCard = React.forwardRef(function ShareCard({ review, article, color }
           {(review.authors || []).map((a, i) => (
             <div
               key={i}
-              style={{ flex: 1, background: 'rgba(255,255,255,0.7)', borderRadius: 8, padding: '8px 10px', textAlign: 'center', overflow: 'hidden' }}
+              style={{ flex: 1, background: 'rgba(255,255,255,0.7)', borderRadius: 8, padding: '8px 10px 10px', textAlign: 'center' }}
             >
               <div style={{ display: 'flex', justifyContent: 'center', marginBottom: 4 }}>
                 <LiquidBall percent={a.similarity} size={34} />
               </div>
-              <div style={{ fontSize: 13, color: ink, fontWeight: 600, lineHeight: 1.3 }}>
-                {a.name} <span style={{ fontSize: 10, color: sub, fontWeight: 400 }}>{a.work}</span>
+              <div>
+                <div style={{ fontSize: 13, color: ink, fontWeight: 600, lineHeight: 1.6, whiteSpace: 'nowrap' }}>{a.name}</div>
+                <div style={{ fontSize: 10, color: sub, fontWeight: 400, lineHeight: 1.7, marginTop: 3, whiteSpace: 'nowrap' }}>{a.work}</div>
               </div>
-              <div style={{ fontSize: 10, color: sub, marginTop: 3, lineHeight: 1.5 }}>{a.reason}</div>
+              <div style={{ fontSize: 10, color: sub, marginTop: 4, lineHeight: 1.6 }}>{a.reason}</div>
             </div>
           ))}
         </div>
@@ -982,6 +983,10 @@ export default function ReviewPanel() {
   const handleExportImage = async () => {
     if (!reviewData || !activeArticle) return
     try {
+      // 等网页字体加载完再导出，避免 html2canvas 用 fallback 字体测量导致 CJK 字形被裁
+      if (document.fonts && document.fonts.ready) {
+        await document.fonts.ready
+      }
       const html2canvas = await loadHtml2canvas()
       const node = shareCardRef.current
       if (!node) return

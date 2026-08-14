@@ -5,9 +5,26 @@ import { embedRankAuthors, blendCandidateSets, embedReady } from './embedRank.js
 const DEFAULT_BASE_URL = 'https://maas-api.cn-huabei-1.xf-yun.com/v2'
 const DEFAULT_MODEL = 'xop35qwen2b'
 
+// 智谱（bigmodel.cn）优先：配置 ZHIPU_API_KEY 即用智谱，否则回退讯飞星辰
+const ZHIPU_BASE_URL = process.env.ZHIPU_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4'
+const ZHIPU_MODEL = process.env.ZHIPU_MODEL || 'glm-4.6v-flash'
+const ZHIPU_API_KEY = process.env.ZHIPU_API_KEY
+
 const XFYUN_BASE_URL = process.env.XFYUN_BASE_URL || DEFAULT_BASE_URL
 const XFYUN_MODEL = process.env.XFYUN_MODEL || DEFAULT_MODEL
 const XFYUN_API_KEY = process.env.XFYUN_API_KEY
+
+const PROVIDER = ZHIPU_API_KEY ? 'zhipu' : 'xfyun'
+const ACTIVE_API_KEY = PROVIDER === 'zhipu' ? ZHIPU_API_KEY : XFYUN_API_KEY
+const ACTIVE_MODEL = PROVIDER === 'zhipu' ? ZHIPU_MODEL : XFYUN_MODEL
+const ACTIVE_URL = PROVIDER === 'zhipu'
+  ? `${ZHIPU_BASE_URL}/chat/completions`
+  : `${XFYUN_BASE_URL}/chat/completions`
+
+// 智谱推理模型默认会先输出大段 reasoning_content（思维链），显著拖慢响应。
+// 对文评场景收益有限：关闭思考（thinking.type=disabled）后 Stage1+Stage2 整条管线约 1/3 耗时。
+// 默认关闭；如需开启思考，设 ZHIPU_THINKING=enabled（注意：开启后单阶段可能 40-90s，超出 Vercel 预算）。
+const ZHIPU_THINKING = process.env.ZHIPU_THINKING === 'enabled' ? { type: 'enabled' } : { type: 'disabled' }
 
 // ==================== 轻量限流（防刷）====================
 // 内存滑动窗口：同 IP 60s 内最多 N 次分析。无外部存储，仅做第一道防线：
@@ -36,8 +53,8 @@ export const config = {
   runtime: 'nodejs',
   // 显式声明函数时长上限，避免被 Vercel 按默认值（Hobby 历史默认 10s）杀掉长请求。
   // Stage1/Stage2 最坏多次重试会超过它，但正常单次解读（Stage1+Stage2）在预算内；
-  // callXfyun 单次超时也相应压到 45s（见函数默认值），整体留有余量。
-  maxDuration: 60,
+  // callLLM 单次超时也相应压到 150s（见函数默认值），整体留有余量。
+  maxDuration: 180,
 }
 
 const TONES = ['melancholy', 'passionate', 'serene', 'mysterious', 'humorous']
@@ -144,6 +161,8 @@ function overlapScore(a, b) {
   }
   return 0
 }
+
+const sleep = (ms) => new Promise((res) => setTimeout(res, ms))
 
 // ==================== 两阶段管线：Stage 1 识别 + Stage 2 表达 ====================
 // Stage 1（轻量）：模型读全文，输出 分层标签(userTags) + 情感基调(tone) + 评分(scores) + 批注(annotations) + 精彩句(bestQuote)。
@@ -665,21 +684,22 @@ export function normalizeReview(parsed, content, opts = {}) {
   }
 }
 
-async function callXfyun(prompt, temperature, { timeoutMs = 45000, maxTokens = 8192 } = {}) {
+async function callLLM(prompt, temperature, { timeoutMs = 150000, maxTokens = 8192 } = {}) {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), timeoutMs)
   try {
-    const response = await fetch(`${XFYUN_BASE_URL}/chat/completions`, {
+    const response = await fetch(ACTIVE_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        Authorization: `Bearer ${XFYUN_API_KEY}`,
+        Authorization: `Bearer ${ACTIVE_API_KEY}`,
       },
       body: JSON.stringify({
-        model: XFYUN_MODEL,
+        model: ACTIVE_MODEL,
         messages: [{ role: 'user', content: prompt }],
         temperature,
         max_tokens: maxTokens,
+        ...(PROVIDER === 'zhipu' ? { thinking: ZHIPU_THINKING } : {}),
       }),
       signal: controller.signal,
     })
@@ -701,17 +721,18 @@ async function callXfyun(prompt, temperature, { timeoutMs = 45000, maxTokens = 8
   }
   if (data?.error?.message) {
     const msg = data.error.message
-    console.error('XFYUN API Error:', response.status, msg)
+    console.error('AI API Error:', response.status, msg)
     const err = new Error(`AI 服务返回：${msg}`)
     err.status = response.status
     // 讯飞 MaaS 过载/内部错误常以 HTTP 200 + error.message='internal error' + overloaded=true 返回；
+    // 智谱过载以 HTTP 429 + {"error":{"code":"1305","message":"该模型当前访问量过大"}} 返回。
     // 这类服务端瞬时故障必须可重试（否则 Stage1/Stage2 的 3 次尝试会因 retryable=false 直接中断）。
-    const overloaded = data.overloaded === true || /overload|internal error|繁忙|过载|rate.?limit/i.test(msg)
+    const overloaded = data.overloaded === true || /overload|internal error|繁忙|过载|rate.?limit|访问量过大/i.test(msg)
     err.retryable = response.status >= 500 || response.status === 429 || overloaded
     throw err
   }
   if (!response.ok) {
-    console.error('XFYUN API Error:', response.status, text)
+    console.error('AI API Error:', response.status, text)
     let message = `AI 服务调用失败（${response.status}），请检查 API Key 与模型 ID 配置`
     try {
       const err = JSON.parse(text)
@@ -804,7 +825,7 @@ ${body}
 
 续写：`
   try {
-    const raw = await callXfyun(prompt, 0.6, { maxTokens: 2048 })
+    const raw = await callLLM(prompt, 0.6, { maxTokens: 2048 })
     const clean = String(raw || '')
       .replace(/```/g, '')
       .replace(/^[\s"'“”「『]+|[\s"'“”」』]+$/g, '')
@@ -842,28 +863,36 @@ export async function POST(req) {
       })
     }
 
-    if (!XFYUN_API_KEY) {
+    if (!ACTIVE_API_KEY) {
       return new Response(
-        JSON.stringify({ error: '服务端未配置 XFYUN_API_KEY，请在 Vercel 环境变量中设置' }),
+        JSON.stringify({ error: '服务端未配置 ZHIPU_API_KEY / XFYUN_API_KEY，请在 Vercel 环境变量中设置' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       )
     }
 
     const annoCount = clampCount(content.trim().length)
+    const _t0 = Date.now()
+    const _timer = (label) => { const dt = ((Date.now() - _t0) / 1000).toFixed(1); console.error(`[timing] ${label}: ${dt}s`); return dt }
 
     // ---- Stage 1：风格识别（标签化 + 情感基调 + 评分 + 批注 + 精彩句）----
     // 温度稍高以鼓励标签化多角度命中；批注与精彩句在此产出，为 Stage 2 省下输出预算。
     const stage1Attempts = [0.5, 0.35, 0.65]
     let stage1 = null
+    let attempt = 0
     for (const t of stage1Attempts) {
+      attempt++
       try {
         const p1 = buildStage1Prompt({ content, title, author, annoCount })
-        const raw1 = await callXfyun(p1, t, { maxTokens: 4096 })
+        const raw1 = await callLLM(p1, t, { maxTokens: 4096 })
+        _timer('Stage1 done (temp=' + t + ')')
         stage1 = extractJson(raw1)
         if (stage1 && typeof stage1 === 'object') break
       } catch (err) {
         console.error('Stage1 attempt failed (temp=' + t + '):', err.message)
         if (!err.message.includes('JSON') && !err.retryable) throw err
+        // 429/过载等瞬时故障：退避 2-4s 再试，避免高峰连撞
+        const overloaded = err.status === 429 || /过载|繁忙|访问量|overload|rate.?limit/i.test(String(err.message))
+        if (overloaded && attempt < stage1Attempts.length) await sleep(2000 + attempt * 1000)
       }
     }
     if (!stage1 || typeof stage1 !== 'object') {
@@ -885,7 +914,9 @@ export async function POST(req) {
     if (embedReady()) {
       try {
         const vecTop = await embedRankAuthors(content, 8)
+        _timer('embedRank done')
         candidates = blendCandidateSets(tagResult.candidates, vecTop, WRITERS, FOREIGN_NAMES, 6)
+        _timer('blend done')
       } catch (err) {
         console.error('embedRank blend failed, fallback to tag-only:', err.message)
       }
@@ -895,19 +926,24 @@ export async function POST(req) {
     // 候选已收敛，温度压低保证风格与分数稳定。
     const stage2Attempts = [0.2, 0.15, 0.35]
     let stage2 = null
+    attempt = 0
     for (const t of stage2Attempts) {
+      attempt++
       try {
         const p2 = buildStage2Prompt({
           content, title, author,
           candidates,
           stage1,
         })
-        const raw2 = await callXfyun(p2, t, { maxTokens: 8192 })
+        const raw2 = await callLLM(p2, t, { maxTokens: 8192 })
+        _timer('Stage2 done (temp=' + t + ')')
         stage2 = extractJson(raw2)
         if (stage2 && typeof stage2 === 'object') break
       } catch (err) {
         console.error('Stage2 attempt failed (temp=' + t + '):', err.message)
         if (!err.message.includes('JSON') && !err.retryable) throw err
+        const overloaded = err.status === 429 || /过载|繁忙|访问量|overload|rate.?limit/i.test(String(err.message))
+        if (overloaded && attempt < stage2Attempts.length) await sleep(2000 + attempt * 1000)
       }
     }
 

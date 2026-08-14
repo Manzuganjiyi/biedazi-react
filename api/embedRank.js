@@ -1,9 +1,9 @@
-// ==================== 语义向量作者匹配（讯飞开放平台 Embedding）====================
+// ==================== 语义向量作者匹配（智谱 embedding-3）====================
 // 运行时：embed 用户正文一次 → 与作者向量余弦 → topK。
 // 与标签网络融合见 blendCandidateSets；任一环节失败由调用方回退纯标签。
 // 向量库为 2.5MB 大文件：仅在 embedReady() 为 true 时动态 import（惰性加载），
-// 未配置 EMB_* 凭证的部署不经解析，节省 serverless 冷启动时间。
-import { embedText, embedReady as xfyunEmbedReady } from './xfyunEmbed.js'
+// 未配置 ZHIPU_API_KEY 的部署不经解析，节省 serverless 冷启动时间。
+import { embedText, embedReady as zhipuEmbedReady } from './xfyunEmbed.js'
 
 let authorEmbeddings = null
 let authorEmbeddingsPromise = null
@@ -21,13 +21,13 @@ async function loadAuthorEmbeddings() {
   return authorEmbeddingsPromise
 }
 
-export const embedReady = () => xfyunEmbedReady()
+export const embedReady = () => zhipuEmbedReady()
 
 const EMBED_TEXT_CAP = 1000 // 运行时 embed 正文截断字数（省 token）
 
 // 全体作者向量的均值（共向分量）。embedding 分数普遍挤在高位，
 // 去中心化后余弦区分度大幅提升（实测 spread 0.0077 → 0.2464）。
-// 均值 / 去中心化向量 / 模长一次算好缓存：135 位 × 2560 维的重计算移到模块级，
+// 均值 / 去中心化向量 / 模长一次算好缓存：135 位 × 2048 维的重计算移到模块级，
 // 每次请求直接复用（E9 优化）。
 let precomputed = null
 async function getPrecomputed() {
@@ -57,10 +57,10 @@ async function getPrecomputed() {
   return precomputed
 }
 
-// 用户正文 → 向量。用与建库相同的 EMB_DOMAIN（para）保证同空间可比。
+// 用户正文 → 向量。与建库用同一模型（embedding-3）保证同空间可比。
 export async function embedUserText(text) {
   const input = String(text || '').replace(/\s+/g, '').slice(0, EMBED_TEXT_CAP)
-  return embedText(input, { domain: process.env.EMB_DOMAIN || 'para' })
+  return embedText(input)
 }
 
 // 标准化余弦：输出 = dot(a, b) / (|a|·|b|)。
